@@ -127,6 +127,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         setupSpeedTest()
+        setupInfoButtons()
 
         addLog(getString(R.string.app_started))
     }
@@ -687,6 +688,32 @@ class MainActivity : AppCompatActivity() {
     private fun formatIpAddress(ipAddress: Int): String {
         return if (ipAddress == 0) "0.0.0.0" else
             "${ipAddress and 0xFF}.${ipAddress shr 8 and 0xFF}.${ipAddress shr 16 and 0xFF}.${ipAddress shr 24 and 0xFF}"
+    }
+
+    private fun setupInfoButtons() {
+        binding.btnInfoHub.setOnClickListener {
+            showInfoDialog(getString(R.string.help_hub_title), getString(R.string.help_hub_desc))
+        }
+        binding.btnInfoTechnical.setOnClickListener {
+            showInfoDialog(getString(R.string.help_technical_title), getString(R.string.help_technical_desc))
+        }
+        binding.btnInfo5G.setOnClickListener {
+            showInfoDialog(getString(R.string.help_5g_title), getString(R.string.help_5g_desc))
+        }
+        binding.btnInfoWifi.setOnClickListener {
+            showInfoDialog(getString(R.string.help_wifi_title), getString(R.string.help_wifi_desc))
+        }
+        binding.btnInfoPerformance.setOnClickListener {
+            showInfoDialog(getString(R.string.help_performance_title), getString(R.string.help_performance_desc))
+        }
+    }
+
+    private fun showInfoDialog(title: String, message: String) {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("Anladım", null)
+            .show()
     }
 
     private fun setupSpeedTest() {

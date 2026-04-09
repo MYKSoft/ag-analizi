@@ -76,4 +76,20 @@
     <string name="waiting_for_permissions_desc">Ağ analizi yapabilmek için Konum iznine ve Konum (GPS) servisinin açık olmasına ihtiyaç vardır. Lütfen gerekli izinleri verin ve Konum servisini açın.</string>
     <string name="grant_permissions">İzinleri İste</string>
     <string name="open_settings">Ayarları Aç</string>
+
+    <!-- Help / Info Strings -->
+    <string name="help_hub_title">Şebeke Özeti</string>
+    <string name="help_hub_desc">Bu bölüm mevcut aktif bağlantınızı gösterir.\n\n• Sinyal Gücü (dBm): Değer ne kadar sıfıra yakınsa sinyal o kadar güçlüdür (-60 mükemmel, -110 çok zayıf).\n• Hücre ID: Bağlı olduğunuz baz istasyonunun benzersiz kimliğidir.</string>
+    
+    <string name="help_technical_title">Teknik Detaylar</string>
+    <string name="help_technical_desc">• MCC/MNC: Ülke ve operatör kodları.\n• eNb/CID: Baz istasyonu ve sektör kimliği.\n• PCI/TAC: Hücrenin fiziksel kimliği ve takip alanı.\n• EARFCN/Band: Frekans ve bant bilgisi.\n• RSRP/RSRQ/SNR: Sinyal kalitesi ve gürültü oranları.</string>
+    
+    <string name="help_5g_title">5G NSA Detayları</string>
+    <string name="help_5g_desc">5G NSA (Non-Standalone), 4G altyapısını kullanan 5G teknolojisidir.\n\n• NR-ARFCN: 5G frekans kanalı.\n• SS-RSRP: 5G sinyal gücü.\n• SS-SINR: 5G sinyal temizliği (yüksek değer daha iyidir).</string>
+    
+    <string name="help_wifi_title">Wi-Fi Detayları</string>
+    <string name="help_wifi_desc">• RSSI: Wi-Fi sinyal gücü.\n• Link Speed: Cihaz ile modem arasındaki teorik hız.\n• Kanal/Frekans: Wi-Fi\'nin yayın yaptığı bant (2.4GHz veya 5GHz).\n• DNS/Gateway: Ağ yönlendirme bilgileri.</string>
+    
+    <string name="help_performance_title">Performans Testi</string>
+    <string name="help_performance_desc">• Ping: Verinin sunucuya gidip gelme süresi (düşük daha iyidir).\n• Download: İnternetten veri indirme hızı.\n• Upload: İnternete veri yükleme hızı.\n\nNot: Test 10 saniye sürer ve gerçek ortalamayı hesaplar.</string>
 </resources>

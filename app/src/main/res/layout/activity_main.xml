@@ -129,14 +129,33 @@
                 android:orientation="vertical"
                 android:padding="12dp">
 
-                <TextView
-                    android:id="@+id/txtHubTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/mobile_network"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="12sp"
-                    android:alpha="0.7" />
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <TextView
+                        android:id="@+id/txtHubTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="@string/mobile_network"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="12sp"
+                        android:alpha="0.7" />
+
+                    <ImageButton
+                        android:id="@+id/btnInfoHub"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_info"
+                        android:padding="4dp"
+                        android:scaleType="fitCenter"
+                        app:tint="?attr/colorOnSurfaceVariant"
+                        android:alpha="0.5" />
+                </RelativeLayout>
 
                 <TextView
                     android:id="@+id/txtHubMainValue"
@@ -240,14 +259,33 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <RelativeLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="4dp"
-                    android:text="@string/label_technical_details"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
+                    android:layout_marginBottom="4dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="@string/label_technical_details"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <ImageButton
+                        android:id="@+id/btnInfoTechnical"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_info"
+                        android:padding="2dp"
+                        android:scaleType="fitCenter"
+                        app:tint="?attr/colorOnSurfaceVariant"
+                        android:alpha="0.5" />
+                </RelativeLayout>
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
@@ -272,15 +310,34 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
-                    <TextView
-                        android:id="@+id/lbl5GDetails"
-                        android:layout_width="wrap_content"
+                    <RelativeLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="4dp"
-                        android:text="@string/label_5g_nsa"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
+                        android:layout_marginBottom="4dp">
+
+                        <TextView
+                            android:id="@+id/lbl5GDetails"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_centerVertical="true"
+                            android:text="@string/label_5g_nsa"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <ImageButton
+                            android:id="@+id/btnInfo5G"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_alignParentEnd="true"
+                            android:layout_centerVertical="true"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:src="@drawable/ic_info"
+                            android:padding="2dp"
+                            android:scaleType="fitCenter"
+                            app:tint="?attr/colorOnSurfaceVariant"
+                            android:alpha="0.5" />
+                    </RelativeLayout>
 
                     <com.google.android.material.card.MaterialCardView
                         android:id="@+id/card5GDetails"
@@ -309,14 +366,33 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <RelativeLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="4dp"
-                    android:text="IP DETAYLARI"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
+                    android:layout_marginBottom="4dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="WIFI DETAYLARI"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <ImageButton
+                        android:id="@+id/btnInfoWifi"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_info"
+                        android:padding="2dp"
+                        android:scaleType="fitCenter"
+                        app:tint="?attr/colorOnSurfaceVariant"
+                        android:alpha="0.5" />
+                </RelativeLayout>
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
@@ -420,30 +496,50 @@
                 android:layout_marginTop="8dp"
                 android:visibility="gone">
 
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="4dp">
-                
-                <TextView
-                    android:layout_width="wrap_content"
+                <RelativeLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_centerVertical="true"
-                    android:text="PERFORMANS TESTİ"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
+                    android:layout_marginBottom="4dp">
+                    
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerVertical="true"
+                        android:text="PERFORMANS TESTİ"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
 
-                <ImageButton
-                    android:id="@+id/btnClosePerformance"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_alignParentEnd="true"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:src="@drawable/ic_close"
-                    android:visibility="gone"
-                    app:tint="?attr/colorOnSurfaceVariant" />
-            </RelativeLayout>
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageButton
+                            android:id="@+id/btnInfoPerformance"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:src="@drawable/ic_info"
+                            android:padding="2dp"
+                            android:scaleType="fitCenter"
+                            app:tint="?attr/colorOnSurfaceVariant"
+                            android:alpha="0.5"
+                            android:layout_marginEnd="8dp" />
+
+                        <ImageButton
+                            android:id="@+id/btnClosePerformance"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:src="@drawable/ic_close"
+                            android:visibility="gone"
+                            app:tint="?attr/colorOnSurfaceVariant" />
+                    </LinearLayout>
+                </RelativeLayout>
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
