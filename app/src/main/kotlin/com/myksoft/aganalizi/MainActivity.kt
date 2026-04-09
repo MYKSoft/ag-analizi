@@ -378,7 +378,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Signal Strength & Cell ID
-        val dbm = primaryCell.signal?.dbm ?: -1
+        var dbm = primaryCell.signal?.dbm ?: -1
+        
+        // For LTE, RSRP is a much better indicator of quality than RSSI/dbm
+        if (primaryCell is CellLte) {
+            val lteSignal = primaryCell.signal as? cz.mroczis.netmonster.core.model.signal.SignalLte
+            lteSignal?.rsrp?.let { dbm = it.toInt() }
+        } else if (primaryCell is CellNr) {
+            val nrSignal = primaryCell.signal as? cz.mroczis.netmonster.core.model.signal.SignalNr
+            nrSignal?.ssRsrp?.let { dbm = it }
+        }
+
         binding.txtHubSubValue1.text = if (dbm != -1) "$dbm dBm" else getString(R.string.not_available)
         binding.txtHubSubValue1Description.text = if (dbm != -1) getSignalQualityDescription(dbm, false) else ""
 
@@ -543,14 +553,31 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getNetworkTypeString(primaryCell: ICell, allCells: List<ICell>): String {
+        var isNrAvailable = allCells.any { it is CellNr }
+        
+        // Fallback: Check ServiceState for 5G NSA indicators if NetMonster doesn't see NR cells
+        // This is a common way to detect 5G NSA availability on Android
+        if (!isNrAvailable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+                    val ss = tm.serviceState
+                    val ssString = ss?.toString() ?: ""
+                    if (ssString.contains("nrState=CONNECTED") || 
+                        ssString.contains("nrState=NOT_RESTRICTED") ||
+                        ssString.contains("nrState=AVAILABLE")) {
+                        isNrAvailable = true
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+
         return when (primaryCell) {
             is CellNr -> getString(R.string.sa_5g)
             is CellLte -> {
-                // In 5G NSA, the primary cell is LTE. The NR cell might be reported with SecondaryConnection,
-                // or often with NoneConnection due to Android API limitations on various devices.
-                // If the modem reports any NR cell while connected to LTE, we are practically in 5G NSA.
-                val hasNr = allCells.any { it is CellNr }
-                if (hasNr) {
+                if (isNrAvailable) {
                     getString(R.string.nsa_5g)
                 } else {
                     getString(R.string.lte_4g)
@@ -1051,13 +1078,14 @@ class MainActivity : AppCompatActivity() {
                 else -> getString(R.string.signal_terrible)
             }
         } else {
+            // Mobile thresholds (primarily RSRP for LTE/5G)
             when {
-                dbm >= -70 -> getString(R.string.signal_excellent)
-                dbm >= -80 -> getString(R.string.signal_very_good)
-                dbm >= -90 -> getString(R.string.signal_good)
-                dbm >= -100 -> getString(R.string.signal_moderate)
-                dbm >= -110 -> getString(R.string.signal_poor)
-                dbm >= -120 -> getString(R.string.signal_very_poor)
+                dbm >= -80 -> getString(R.string.signal_excellent)
+                dbm >= -90 -> getString(R.string.signal_very_good)
+                dbm >= -100 -> getString(R.string.signal_good)
+                dbm >= -105 -> getString(R.string.signal_moderate)
+                dbm >= -115 -> getString(R.string.signal_poor)
+                dbm >= -125 -> getString(R.string.signal_very_poor)
                 else -> getString(R.string.signal_terrible)
             }
         }
