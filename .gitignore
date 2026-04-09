@@ -1,0 +1,21 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Android/Gradle specific
+.gradle/
+.build-outputs/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aar
+# Ignore all jars except the wrapper
+**/*.jar
+!gradle/wrapper/gradle-wrapper.jar

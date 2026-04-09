@@ -1,0 +1,7 @@
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="turkcell">#FFD700</color>
+    <color name="vodafone">#E60000</color>
+    <color name="telekom">#05BEC8</color>
+</resources>

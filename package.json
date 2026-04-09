@@ -1,0 +1,19 @@
+{
+  "name": "network-analyzer-android",
+  "version": "1.0.0",
+  "description": "Native Android Network Analysis Application",
+  "scripts": {
+    "build": "echo 'Native Android project. Use Gradle to build.'",
+    "lint": "echo 'Running Android lint...'"
+  },
+  "keywords": [
+    "android",
+    "kotlin",
+    "network",
+    "analyzer",
+    "netmonster"
+  ],
+  "author": "",
+  "license": "Apache-2.0"
+}
+

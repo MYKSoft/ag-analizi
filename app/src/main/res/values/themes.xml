@@ -1,0 +1,5 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.NetworkAnalyzer" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/turkcell</item>
+    </style>
+</resources>

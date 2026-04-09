@@ -1,0 +1,82 @@
+name: Otomatik APK Yayınlama
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Kodu Çek
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Java Kurulumu
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.7
+
+      - name: Decode Keystore
+        shell: python
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          import base64
+          import os
+          import re
+          
+          keystore_b64 = os.environ.get('KEYSTORE_BASE64', '')
+          # Clean up: remove whitespace, newlines, and invalid characters
+          keystore_b64 = re.sub(r'[^a-zA-Z0-9+/=]', '', keystore_b64)
+          
+          try:
+              keystore_bytes = base64.b64decode(keystore_b64, validate=True)
+              with open('app/release.keystore', 'wb') as f:
+                  f.write(keystore_bytes)
+              print(f"Keystore successfully decoded. Size: {len(keystore_bytes)} bytes")
+          except Exception as e:
+              print(f"Error: Could not decode keystore. {e}")
+              exit(1)
+
+      - name: APK Derle (Gradle)
+        env:
+          KEYSTORE_PATH: release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          gradle assembleRelease
+          mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Ag.Analizi.Pro.apk
+
+      - name: Otomatik Etiket Oluştur (Zaman Damgalı)
+        id: create_tag
+        run: |
+          TAG_NAME="v$(date +'%Y.%m.%d-%H%M')"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag $TAG_NAME
+          git push origin $TAG_NAME
+
+      - name: GitHub Release Oluştur ve APK Yükle
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.create_tag.outputs.tag_name }}
+          name: Sürüm ${{ steps.create_tag.outputs.tag_name }}
+          files: app/build/outputs/apk/release/*.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
