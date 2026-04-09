@@ -65,6 +65,12 @@
     <string name="security_open">Açık (Güvensiz)</string>
     <string name="security_hidden">Gizli (Konum Gerekli)</string>
     <string name="label_technical_details">TEKNİK DETAYLAR</string>
+    <string name="label_pci">PCI (Physical Cell ID)</string>
+    <string name="label_tac">TAC (Tracking Area Code)</string>
+    <string name="label_bandwidth">Bant Genişliği</string>
+    <string name="label_earfcn">EARFCN</string>
+    <string name="label_nrarfcn">NR-ARFCN</string>
+    <string name="label_band">Band</string>
     <string name="label_5g_nsa">5G NSA</string>
     <string name="waiting_for_permissions">İzinler ve Sensörler Bekleniyor</string>
     <string name="waiting_for_permissions_desc">Ağ analizi yapabilmek için Konum iznine ve Konum (GPS) servisinin açık olmasına ihtiyaç vardır. Lütfen gerekli izinleri verin ve Konum servisini açın.</string>

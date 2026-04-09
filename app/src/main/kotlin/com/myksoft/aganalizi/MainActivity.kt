@@ -418,11 +418,12 @@ class MainActivity : AppCompatActivity() {
                 addDetailRow(binding.gridTechnicalDetails, "CI", primaryCell.eci?.toString() ?: "N/A")
                 addDetailRow(binding.gridTechnicalDetails, "eNb", (primaryCell.eci?.let { it / 256 })?.toString() ?: "N/A")
                 addDetailRow(binding.gridTechnicalDetails, "CID", (primaryCell.eci?.let { it % 256 })?.toString() ?: "N/A")
-                addDetailRow(binding.gridTechnicalDetails, "TAC", primaryCell.tac?.toString() ?: "N/A")
-                addDetailRow(binding.gridTechnicalDetails, "PCI", primaryCell.pci?.toString() ?: "N/A")
-                primaryCell.bandwidth?.let { addDetailRow(binding.gridTechnicalDetails, "BW", "${it / 1000} MHz") }
+                addDetailRow(binding.gridTechnicalDetails, getString(R.string.label_tac), primaryCell.tac?.toString() ?: "N/A")
+                addDetailRow(binding.gridTechnicalDetails, getString(R.string.label_pci), primaryCell.pci?.toString() ?: "N/A")
+                primaryCell.bandwidth?.let { addDetailRow(binding.gridTechnicalDetails, getString(R.string.label_bandwidth), "${it / 1000} MHz") }
                 primaryCell.band?.let { 
-                    addDetailRow(binding.gridTechnicalDetails, "EARFCN", it.channelNumber.toString())
+                    addDetailRow(binding.gridTechnicalDetails, getString(R.string.label_earfcn), it.channelNumber.toString())
+                    addDetailRow(binding.gridTechnicalDetails, getString(R.string.label_band), "B${it.number} (${it.name})")
                 }
                 
                 val signal = primaryCell.signal as? cz.mroczis.netmonster.core.model.signal.SignalLte
@@ -459,8 +460,8 @@ class MainActivity : AppCompatActivity() {
                 if (nrCell != null) {
                     binding.layout5GDetails.visibility = View.VISIBLE
                     
-                    addDetailRow(binding.grid5GDetails, "TAC", nrCell.tac?.toString() ?: "N/A")
-                    addDetailRow(binding.grid5GDetails, "PCI", nrCell.pci?.toString() ?: "N/A")
+                    addDetailRow(binding.grid5GDetails, getString(R.string.label_tac), nrCell.tac?.toString() ?: "N/A")
+                    addDetailRow(binding.grid5GDetails, getString(R.string.label_pci), nrCell.pci?.toString() ?: "N/A")
                     
                     nrCell.band?.let { bandInfo ->
                         val arfcn = bandInfo.channelNumber
@@ -476,20 +477,28 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
                         
-                        addDetailRow(binding.grid5GDetails, "ARFCN", arfcn.toString())
+                        addDetailRow(binding.grid5GDetails, getString(R.string.label_nrarfcn), arfcn.toString())
                         val bandName = if (bandNumber != 0) "n$bandNumber" else bandInfo.name ?: getString(R.string.unknown)
                         addDetailRow(binding.grid5GDetails, "5G Band", "$bandName ($bandNumber)")
                     }
-                    nrCell.signal.let { s ->
-                        addDetailValueRow(binding.grid5GDetails, "SS RSRP", s.dbm ?: -1, " dBm", "nr_rsrp")
+                    
+                    val nrSignal = nrCell.signal as? cz.mroczis.netmonster.core.model.signal.SignalNr
+                    if (nrSignal != null) {
+                        addDetailValueRow(binding.grid5GDetails, "SS RSRP", nrSignal.ssRsrp ?: -1, " dBm", "nr_rsrp")
+                        addDetailValueRow(binding.grid5GDetails, "SS RSRQ", nrSignal.ssRsrq ?: -1, " dB", "nr_rsrq")
+                        addDetailValueRow(binding.grid5GDetails, "SS SINR", nrSignal.ssSinr ?: -1, " dB", "nr_sinr")
+                    } else {
+                        nrCell.signal.let { s ->
+                            addDetailValueRow(binding.grid5GDetails, "SS RSRP", s.dbm ?: -1, " dBm", "nr_rsrp")
+                        }
                     }
                 } else {
                     binding.layout5GDetails.visibility = View.GONE
                 }
             }
             is CellNr -> {
-                addDetailRow(binding.gridTechnicalDetails, "PCI", primaryCell.pci?.toString() ?: "N/A")
-                addDetailRow(binding.gridTechnicalDetails, "TAC", primaryCell.tac?.toString() ?: "N/A")
+                addDetailRow(binding.gridTechnicalDetails, getString(R.string.label_pci), primaryCell.pci?.toString() ?: "N/A")
+                addDetailRow(binding.gridTechnicalDetails, getString(R.string.label_tac), primaryCell.tac?.toString() ?: "N/A")
                 primaryCell.band?.let { bandInfo ->
                     val arfcn = bandInfo.channelNumber
                     var bandNumber = bandInfo.number ?: 0
@@ -503,12 +512,20 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     
-                    addDetailRow(binding.gridTechnicalDetails, "NR-ARFCN", arfcn.toString())
+                    addDetailRow(binding.gridTechnicalDetails, getString(R.string.label_nrarfcn), arfcn.toString())
                     val bandName = if (bandNumber != 0) "n$bandNumber" else bandInfo.name ?: getString(R.string.unknown)
                     addDetailRow(binding.gridTechnicalDetails, "5G Band", "$bandName ($bandNumber)")
                 }
-                primaryCell.signal.let { s ->
-                    addDetailValueRow(binding.gridTechnicalDetails, "SS-RSRP", s.dbm ?: -1, " dBm", "nr_rsrp")
+                
+                val nrSignal = primaryCell.signal as? cz.mroczis.netmonster.core.model.signal.SignalNr
+                if (nrSignal != null) {
+                    addDetailValueRow(binding.gridTechnicalDetails, "SS-RSRP", nrSignal.ssRsrp ?: -1, " dBm", "nr_rsrp")
+                    addDetailValueRow(binding.gridTechnicalDetails, "SS-RSRQ", nrSignal.ssRsrq ?: -1, " dB", "nr_rsrq")
+                    addDetailValueRow(binding.gridTechnicalDetails, "SS-SINR", nrSignal.ssSinr ?: -1, " dB", "nr_sinr")
+                } else {
+                    primaryCell.signal.let { s ->
+                        addDetailValueRow(binding.gridTechnicalDetails, "SS-RSRP", s.dbm ?: -1, " dBm", "nr_rsrp")
+                    }
                 }
             }
             is CellWcdma -> {
@@ -806,17 +823,17 @@ class MainActivity : AppCompatActivity() {
     private suspend fun runDownloadTest(updateUi: (String, Float, Int) -> Unit): Double {
         var inputStream: InputStream? = null
         return try {
-            // Use a very large byte count (2GB) to ensure it lasts at least 10 seconds even on 1Gbps+ connections
-            val url = URL("https://speed.cloudflare.com/__down?bytes=2000000000") 
+            // Use 1GB instead of 2GB to be more compatible with server limits, still enough for 10s at 800Mbps
+            val url = URL("https://speed.cloudflare.com/__down?bytes=1000000000") 
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection.connectTimeout = 5000
-            connection.readTimeout = 20000
+            connection.connectTimeout = 10000
+            connection.readTimeout = 30000
             
             val startTime = System.currentTimeMillis()
             val testDuration = 10000L // 10 seconds
             inputStream = connection.inputStream
-            val buffer = ByteArray(16384)
+            val buffer = ByteArray(32768) // Larger buffer
             var totalBytes = 0L
             var read = 0
             var lastUpdateTime = startTime
@@ -851,6 +868,7 @@ class MainActivity : AppCompatActivity() {
             if (!isSpeedTestRunning || speeds.isEmpty()) return 0.0
             speeds.average()
         } catch (e: Exception) {
+            addLog("Download Hatası: ${e.message}")
             -1.0
         } finally {
             try { inputStream?.close() } catch (e: Exception) {}
