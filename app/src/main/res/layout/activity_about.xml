@@ -4,14 +4,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#FFFFFF"
     android:padding="24dp">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/about_label"
-        android:textColor="#1A1A1A"
+        android:textColor="?attr/colorOnSurface"
         android:textSize="24sp"
         android:textStyle="bold"
         android:layout_marginBottom="32dp"/>
@@ -34,7 +33,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Uygulama Bilgisi"
-                android:textColor="#999999"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:layout_marginBottom="8dp"/>
@@ -44,7 +43,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/version_label"
-                android:textColor="#333333"
+                android:textColor="?attr/colorOnSurface"
                 android:textSize="16sp"
                 android:textStyle="bold"/>
 
@@ -53,7 +52,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/developer_label"
-                android:textColor="#666666"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="14sp"
                 android:layout_marginTop="4dp"
                 android:textStyle="italic"/>
@@ -62,7 +61,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/about_description"
-                android:textColor="#666666"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="14sp"
                 android:layout_marginTop="8dp"/>
         </LinearLayout>
@@ -97,7 +96,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Geri bildirim gönderirken sistem logları otomatik olarak eklenecektir."
-        android:textColor="#999999"
+        android:textColor="?attr/colorOnSurfaceVariant"
         android:textSize="11sp"
         android:gravity="center"
         android:layout_marginTop="8dp"/>

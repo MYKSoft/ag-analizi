@@ -4,14 +4,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
     android:fitsSystemWindows="false"
     tools:context=".MainActivity">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#FFFFFF"
         app:elevation="0dp">
 
         <androidx.appcompat.widget.Toolbar
@@ -33,7 +31,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/app_name"
-                            android:textColor="#1A1A1A"
+                            android:textColor="?attr/colorOnSurface"
                             android:textSize="20sp"
                             android:textStyle="bold" />
 
@@ -42,7 +40,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/waiting"
-                            android:textColor="#999999"
+                            android:textColor="?attr/colorOnSurfaceVariant"
                             android:textSize="10sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -55,7 +53,7 @@
                         android:layout_centerVertical="true"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@drawable/ic_info"
-                        app:tint="#666666" />
+                        app:tint="?attr/colorOnSurfaceVariant" />
                 </RelativeLayout>
         </androidx.appcompat.widget.Toolbar>
     </com.google.android.material.appbar.AppBarLayout>
@@ -74,7 +72,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/waiting_for_permissions"
-            android:textColor="#1A1A1A"
+            android:textColor="?attr/colorOnSurface"
             android:textSize="20sp"
             android:textStyle="bold"
             android:layout_marginBottom="16dp"
@@ -84,7 +82,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/waiting_for_permissions_desc"
-            android:textColor="#666666"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="14sp"
             android:layout_marginBottom="24dp"
             android:gravity="center" />
@@ -136,7 +134,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/mobile_network"
-                    android:textColor="#000000"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="12sp"
                     android:alpha="0.7" />
 
@@ -145,7 +143,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/waiting"
-                    android:textColor="#000000"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="32sp"
                     android:textStyle="bold" />
 
@@ -166,7 +164,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/signal_strength"
-                            android:textColor="#000000"
+                            android:textColor="?attr/colorOnSurface"
                             android:textSize="10sp"
                             android:textStyle="bold"
                             android:alpha="0.6" />
@@ -176,7 +174,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="N/A"
-                            android:textColor="#000000"
+                            android:textColor="?attr/colorOnSurface"
                             android:textSize="24sp"
                             android:textStyle="bold" />
 
@@ -185,7 +183,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text=""
-                            android:textColor="#000000"
+                            android:textColor="?attr/colorOnSurface"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:alpha="0.8" />
@@ -202,7 +200,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/cell_id"
-                            android:textColor="#000000"
+                            android:textColor="?attr/colorOnSurface"
                             android:textSize="10sp"
                             android:textStyle="bold"
                             android:alpha="0.6" />
@@ -212,7 +210,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="N/A"
-                            android:textColor="#000000"
+                            android:textColor="?attr/colorOnSurface"
                             android:textSize="24sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -247,7 +245,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="4dp"
                     android:text="@string/label_technical_details"
-                    android:textColor="#999999"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="10sp"
                     android:textStyle="bold" />
 
@@ -255,7 +253,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="4dp"
-                    app:cardBackgroundColor="#FFFFFF"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="1dp"
                     app:strokeWidth="0dp">
@@ -281,7 +278,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="4dp"
                         android:text="@string/label_5g_nsa"
-                        android:textColor="#999999"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="10sp"
                         android:textStyle="bold" />
 
@@ -290,7 +287,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="4dp"
-                        app:cardBackgroundColor="#FFFFFF"
                         app:cardCornerRadius="16dp"
                         app:cardElevation="1dp"
                         app:strokeWidth="0dp">
@@ -318,7 +314,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="4dp"
                     android:text="IP DETAYLARI"
-                    android:textColor="#999999"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="10sp"
                     android:textStyle="bold" />
 
@@ -343,7 +339,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="4dp"
                     android:text="SİNYAL KALİTESİ"
-                    android:textColor="#999999"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="10sp"
                     android:textStyle="bold" />
 
@@ -368,7 +364,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="4dp"
                     android:text="KANAL / GENİŞLİK"
-                    android:textColor="#999999"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="10sp"
                     android:textStyle="bold" />
 
@@ -393,7 +389,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="4dp"
                     android:text="GÜVENLİK"
-                    android:textColor="#999999"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="10sp"
                     android:textStyle="bold" />
 
@@ -434,7 +430,7 @@
                     android:layout_height="wrap_content"
                     android:layout_centerVertical="true"
                     android:text="PERFORMANS TESTİ"
-                    android:textColor="#999999"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="10sp"
                     android:textStyle="bold" />
 
@@ -446,13 +442,12 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@drawable/ic_close"
                     android:visibility="gone"
-                    app:tint="#999999" />
+                    app:tint="?attr/colorOnSurfaceVariant" />
             </RelativeLayout>
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="#FFFFFF"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="1dp"
                 app:strokeWidth="0dp">
@@ -471,20 +466,58 @@
                         android:layout_marginBottom="12dp">
                         
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="4dp">
-                            <TextView android:layout_width="100dp" android:layout_height="wrap_content" android:text="Ping:" android:textStyle="bold" android:textColor="#333333" android:textSize="14sp"/>
-                            <TextView android:id="@+id/txtSpeedPing" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/waiting" android:textColor="#666666" android:textSize="14sp"/>
+                            <TextView android:layout_width="100dp" android:layout_height="wrap_content" android:text="Ping:" android:textStyle="bold" android:textColor="?attr/colorOnSurface" android:textSize="14sp"/>
+                            <TextView android:id="@+id/txtSpeedPing" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/waiting" android:textColor="?attr/colorOnSurfaceVariant" android:textSize="14sp"/>
                         </LinearLayout>
                         
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="4dp">
-                            <TextView android:layout_width="100dp" android:layout_height="wrap_content" android:text="Download:" android:textStyle="bold" android:textColor="#333333" android:textSize="14sp"/>
-                            <TextView android:id="@+id/txtSpeedDownload" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/waiting" android:textColor="#666666" android:textSize="14sp"/>
+                            <TextView android:layout_width="100dp" android:layout_height="wrap_content" android:text="Download:" android:textStyle="bold" android:textColor="?attr/colorOnSurface" android:textSize="14sp"/>
+                            <TextView android:id="@+id/txtSpeedDownload" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/waiting" android:textColor="?attr/colorOnSurfaceVariant" android:textSize="14sp"/>
                         </LinearLayout>
                         
                         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-                            <TextView android:layout_width="100dp" android:layout_height="wrap_content" android:text="Upload:" android:textStyle="bold" android:textColor="#333333" android:textSize="14sp"/>
-                            <TextView android:id="@+id/txtSpeedUpload" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/waiting" android:textColor="#666666" android:textSize="14sp"/>
+                            <TextView android:layout_width="100dp" android:layout_height="wrap_content" android:text="Upload:" android:textStyle="bold" android:textColor="?attr/colorOnSurface" android:textSize="14sp"/>
+                            <TextView android:id="@+id/txtSpeedUpload" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/waiting" android:textColor="?attr/colorOnSurfaceVariant" android:textSize="14sp"/>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/layoutSpeedProgress"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone">
+
+                            <com.google.android.material.progressindicator.LinearProgressIndicator
+                                android:id="@+id/progressSpeedTest"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:max="100"
+                                app:trackThickness="8dp"
+                                app:trackCornerRadius="4dp" />
+
+                            <TextView
+                                android:id="@+id/txtSpeedCountdown"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Kalan Süre: 10s"
+                                android:textColor="?attr/colorOnSurfaceVariant"
+                                android:textSize="11sp"
+                                android:gravity="center"
+                                android:layout_marginTop="4dp" />
                         </LinearLayout>
                     </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/txtDataWarning"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="⚠️ Bu test yüksek miktarda veri tüketebilir (1GB+)."
+                        android:textColor="#D50000"
+                        android:textSize="10sp"
+                        android:gravity="center"
+                        android:layout_marginBottom="8dp"
+                        android:visibility="gone" />
                     
                     <LinearLayout
                         android:layout_width="match_parent"

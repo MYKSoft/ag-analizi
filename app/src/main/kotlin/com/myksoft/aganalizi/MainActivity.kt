@@ -12,6 +12,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.telephony.TelephonyManager
+import android.util.TypedValue
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -22,6 +23,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.color.MaterialColors
 import com.myksoft.aganalizi.databinding.ActivityMainBinding
 import cz.mroczis.netmonster.core.factory.NetMonsterFactory
 import cz.mroczis.netmonster.core.model.cell.*
@@ -45,6 +47,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val updateInterval = 500L
     private var isRunning = false
+    private var isSpeedTestRunning = false
     
     private val netMonster by lazy { NetMonsterFactory.get(this) }
 
@@ -560,8 +563,11 @@ class MainActivity : AppCompatActivity() {
             ssid = getString(R.string.hidden_ssid)
         }
 
-        binding.cardActiveHub.setCardBackgroundColor(Color.parseColor("#FFFFFF"))
-        setHubTextColor(Color.BLACK)
+        val surfaceColor = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorSurface)
+        val onSurfaceColor = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorOnSurface)
+
+        binding.cardActiveHub.setCardBackgroundColor(surfaceColor)
+        setHubTextColor(onSurfaceColor)
 
         binding.txtHubTitle.text = getString(R.string.wifi_connection)
         binding.txtHubMainValue.text = ssid
@@ -670,59 +676,109 @@ class MainActivity : AppCompatActivity() {
         binding.btnOpenPerformance.setOnClickListener {
             binding.layoutSpeedResults.visibility = View.VISIBLE
             binding.btnClosePerformance.visibility = View.VISIBLE
+            binding.txtDataWarning.visibility = View.VISIBLE
         }
 
         binding.btnClosePerformance.setOnClickListener {
+            if (isSpeedTestRunning) {
+                isSpeedTestRunning = false
+                return@setOnClickListener
+            }
             binding.layoutSpeedResults.visibility = View.GONE
             binding.btnClosePerformance.visibility = View.GONE
+            binding.txtDataWarning.visibility = View.GONE
         }
 
         binding.btnStartSpeedTest.setOnClickListener {
-            binding.btnStartSpeedTest.isEnabled = false
-            binding.btnOpenPerformance.isEnabled = false
-            binding.btnStartSpeedTest.text = getString(R.string.test_repeating)
-            binding.layoutSpeedResults.visibility = View.VISIBLE
-            binding.btnClosePerformance.visibility = View.GONE // Hide close during test
-            
-            binding.txtSpeedPing.text = getString(R.string.measuring)
-            binding.txtSpeedDownload.text = getString(R.string.waiting)
-            binding.txtSpeedUpload.text = getString(R.string.waiting)
-            
-            lifecycleScope.launch(Dispatchers.IO) {
-                // 1. Ping
-                val pingResult = measurePing()
-                withContext(Dispatchers.Main) {
-                    binding.txtSpeedPing.text = pingResult
-                    binding.txtSpeedDownload.text = getString(R.string.measuring)
-                }
-                
-                // 2. Download
-                val dlSpeed = runDownloadTest { currentSpeed ->
-                    binding.txtSpeedDownload.text = currentSpeed
-                }
-                withContext(Dispatchers.Main) {
-                    val dlStr = if (dlSpeed > 0) String.format(Locale.US, "%.1f Mbps", dlSpeed) else "Hata"
-                    binding.txtSpeedDownload.text = dlStr
-                    binding.txtSpeedUpload.text = getString(R.string.measuring)
-                }
-                
-                // 3. Upload
-                val ulSpeed = runUploadTest { currentSpeed ->
-                    binding.txtSpeedUpload.text = currentSpeed
-                }
-                withContext(Dispatchers.Main) {
-                    val dlStr = if (dlSpeed > 0) String.format(Locale.US, "%.1f Mbps", dlSpeed) else "Hata"
-                    val ulStr = if (ulSpeed > 0) String.format(Locale.US, "%.1f Mbps", ulSpeed) else getString(R.string.error_label)
-                    
-                    binding.txtSpeedUpload.text = ulStr
-                    binding.btnStartSpeedTest.text = getString(R.string.repeat_test)
-                    binding.btnStartSpeedTest.isEnabled = true
-                    binding.btnOpenPerformance.isEnabled = true
-                    binding.btnClosePerformance.visibility = View.VISIBLE // Show close after test
-                    
-                    addLog(getString(R.string.speed_test_completed, pingResult, dlStr, ulStr))
-                }
+            if (isSpeedTestRunning) return@setOnClickListener
+
+            val builder = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            builder.setTitle("Hız Testi Başlatılsın mı?")
+            builder.setMessage("Bu test yaklaşık 20 saniye sürecek ve yüksek miktarda veri tüketebilir (1GB+). Devam etmek istiyor musunuz?")
+            builder.setPositiveButton("Başlat") { _, _ ->
+                runActualSpeedTest()
             }
+            builder.setNegativeButton("İptal", null)
+            builder.show()
+        }
+    }
+
+    private fun runActualSpeedTest() {
+        isSpeedTestRunning = true
+        binding.btnStartSpeedTest.isEnabled = false
+        binding.btnOpenPerformance.isEnabled = false
+        binding.btnStartSpeedTest.text = "Test Yapılıyor..."
+        binding.layoutSpeedResults.visibility = View.VISIBLE
+        binding.layoutSpeedProgress.visibility = View.VISIBLE
+        binding.btnClosePerformance.visibility = View.VISIBLE
+        binding.btnClosePerformance.setImageResource(R.drawable.ic_close)
+        
+        binding.txtSpeedPing.text = getString(R.string.measuring)
+        binding.txtSpeedDownload.text = getString(R.string.waiting)
+        binding.txtSpeedUpload.text = getString(R.string.waiting)
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            // 1. Ping
+            val pingResult = measurePing()
+            if (!isSpeedTestRunning) {
+                resetSpeedTestUI()
+                return@launch
+            }
+            
+            withContext(Dispatchers.Main) {
+                binding.txtSpeedPing.text = pingResult
+                binding.txtSpeedDownload.text = getString(R.string.measuring)
+            }
+            
+            // 2. Download
+            val dlSpeed = runDownloadTest { currentSpeed, progress, remaining ->
+                binding.txtSpeedDownload.text = currentSpeed
+                binding.progressSpeedTest.progress = (progress * 50).toInt() // First 50%
+                binding.txtSpeedCountdown.text = "İndirme Testi: ${remaining}s kaldı"
+            }
+            
+            if (!isSpeedTestRunning) {
+                resetSpeedTestUI()
+                return@launch
+            }
+            
+            withContext(Dispatchers.Main) {
+                val dlStr = if (dlSpeed > 0) String.format(Locale.US, "%.1f Mbps", dlSpeed) else "Hata"
+                binding.txtSpeedDownload.text = dlStr
+                binding.txtSpeedUpload.text = getString(R.string.measuring)
+            }
+            
+            // 3. Upload
+            val ulSpeed = runUploadTest { currentSpeed, progress, remaining ->
+                binding.txtSpeedUpload.text = currentSpeed
+                binding.progressSpeedTest.progress = 50 + (progress * 50).toInt() // Last 50%
+                binding.txtSpeedCountdown.text = "Yükleme Testi: ${remaining}s kaldı"
+            }
+            
+            if (!isSpeedTestRunning) {
+                resetSpeedTestUI()
+                return@launch
+            }
+            
+            withContext(Dispatchers.Main) {
+                val dlStr = if (dlSpeed > 0) String.format(Locale.US, "%.1f Mbps", dlSpeed) else "Hata"
+                val ulStr = if (ulSpeed > 0) String.format(Locale.US, "%.1f Mbps", ulSpeed) else getString(R.string.error_label)
+                
+                binding.txtSpeedUpload.text = ulStr
+                resetSpeedTestUI()
+                addLog(getString(R.string.speed_test_completed, pingResult, dlStr, ulStr))
+            }
+        }
+    }
+
+    private suspend fun resetSpeedTestUI() {
+        withContext(Dispatchers.Main) {
+            isSpeedTestRunning = false
+            binding.btnStartSpeedTest.text = getString(R.string.repeat_test)
+            binding.btnStartSpeedTest.isEnabled = true
+            binding.btnOpenPerformance.isEnabled = true
+            binding.layoutSpeedProgress.visibility = View.GONE
+            binding.btnClosePerformance.visibility = View.VISIBLE
         }
     }
 
@@ -747,36 +803,53 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun runDownloadTest(updateUi: (String) -> Unit): Double {
+    private suspend fun runDownloadTest(updateUi: (String, Float, Int) -> Unit): Double {
         var inputStream: InputStream? = null
         return try {
-            val url = URL("https://speed.cloudflare.com/__down?bytes=25000000")
+            // Use a very large byte count (2GB) to ensure it lasts at least 10 seconds even on 1Gbps+ connections
+            val url = URL("https://speed.cloudflare.com/__down?bytes=2000000000") 
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.connectTimeout = 5000
-            connection.readTimeout = 10000
+            connection.readTimeout = 20000
             
             val startTime = System.currentTimeMillis()
+            val testDuration = 10000L // 10 seconds
             inputStream = connection.inputStream
-            val buffer = ByteArray(8192)
+            val buffer = ByteArray(16384)
             var totalBytes = 0L
-            var read: Int
+            var read = 0
             var lastUpdateTime = startTime
             
-            while (inputStream.read(buffer).also { read = it } != -1) {
+            val speeds = mutableListOf<Double>()
+            
+            while (isSpeedTestRunning && inputStream.read(buffer).also { read = it } != -1) {
                 totalBytes += read
                 val currentTime = System.currentTimeMillis()
+                
                 if (currentTime - lastUpdateTime > 500) {
-                    val timeInSeconds = (currentTime - startTime) / 1000.0
+                    val elapsed = currentTime - startTime
+                    val timeInSeconds = elapsed / 1000.0
                     val speedMbps = (totalBytes * 8 / 1_000_000.0) / timeInSeconds
+                    speeds.add(speedMbps)
+                    
+                    val progress = (elapsed.toFloat() / testDuration).coerceIn(0f, 1f)
+                    val remaining = ((testDuration - elapsed) / 1000).toInt().coerceAtLeast(0)
+
                     withContext(Dispatchers.Main) {
-                        updateUi(String.format(Locale.US, "%.1f Mbps", speedMbps))
+                        updateUi(String.format(Locale.US, "%.1f Mbps", speedMbps), progress, remaining)
                     }
                     lastUpdateTime = currentTime
                 }
+                
+                // Stop after 10 seconds
+                if (currentTime - startTime >= testDuration) {
+                    break
+                }
             }
-            val totalTime = (System.currentTimeMillis() - startTime) / 1000.0
-            (totalBytes * 8 / 1_000_000.0) / totalTime
+            
+            if (!isSpeedTestRunning || speeds.isEmpty()) return 0.0
+            speeds.average()
         } catch (e: Exception) {
             -1.0
         } finally {
@@ -784,7 +857,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun runUploadTest(updateUi: (String) -> Unit): Double {
+    private suspend fun runUploadTest(updateUi: (String, Float, Int) -> Unit): Double {
         var outputStream: OutputStream? = null
         return try {
             val url = URL("https://speed.cloudflare.com/__up")
@@ -792,31 +865,46 @@ class MainActivity : AppCompatActivity() {
             connection.requestMethod = "POST"
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/octet-stream")
-            connection.setChunkedStreamingMode(8192)
+            connection.setChunkedStreamingMode(16384)
             
             outputStream = connection.outputStream
-            val buffer = ByteArray(8192) { 0 }
+            val buffer = ByteArray(16384) { 0 }
             val startTime = System.currentTimeMillis()
+            val testDuration = 10000L // 10 seconds
             var totalBytes = 0L
-            val targetBytes = 10_000_000L // 10MB
             var lastUpdateTime = startTime
             
-            while (totalBytes < targetBytes) {
+            val speeds = mutableListOf<Double>()
+            
+            while (isSpeedTestRunning) {
                 outputStream.write(buffer)
                 totalBytes += buffer.size
                 val currentTime = System.currentTimeMillis()
+                
                 if (currentTime - lastUpdateTime > 500) {
-                    val timeInSeconds = (currentTime - startTime) / 1000.0
+                    val elapsed = currentTime - startTime
+                    val timeInSeconds = elapsed / 1000.0
                     val speedMbps = (totalBytes * 8 / 1_000_000.0) / timeInSeconds
+                    speeds.add(speedMbps)
+                    
+                    val progress = (elapsed.toFloat() / testDuration).coerceIn(0f, 1f)
+                    val remaining = ((testDuration - elapsed) / 1000).toInt().coerceAtLeast(0)
+
                     withContext(Dispatchers.Main) {
-                        updateUi(String.format(Locale.US, "%.1f Mbps", speedMbps))
+                        updateUi(String.format(Locale.US, "%.1f Mbps", speedMbps), progress, remaining)
                     }
                     lastUpdateTime = currentTime
                 }
+                
+                // Stop after 10 seconds
+                if (currentTime - startTime >= testDuration) {
+                    break
+                }
             }
             outputStream.flush()
-            val totalTime = (System.currentTimeMillis() - startTime) / 1000.0
-            (totalBytes * 8 / 1_000_000.0) / totalTime
+            
+            if (!isSpeedTestRunning || speeds.isEmpty()) return 0.0
+            speeds.average()
         } catch (e: Exception) {
             -1.0
         } finally {
@@ -832,8 +920,12 @@ class MainActivity : AppCompatActivity() {
             lastLoggedCellId = null
             lastLoggedSsid = null
         }
-        binding.cardActiveHub.setCardBackgroundColor(Color.parseColor("#F5F5F5"))
-        setHubTextColor(Color.BLACK)
+        
+        val surfaceVariantColor = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorSurfaceVariant)
+        val onSurfaceColor = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorOnSurface)
+
+        binding.cardActiveHub.setCardBackgroundColor(surfaceVariantColor)
+        setHubTextColor(onSurfaceColor)
         binding.txtHubMainValue.text = getString(R.string.no_connection)
         binding.txtHubSubValue1.text = getString(R.string.not_available)
         binding.txtHubSubValue1Description.text = ""
@@ -861,8 +953,10 @@ class MainActivity : AppCompatActivity() {
                 setHubTextColor(Color.BLACK)
             }
             else -> {
-                binding.cardActiveHub.setCardBackgroundColor(Color.parseColor("#FFFFFF"))
-                setHubTextColor(Color.BLACK)
+                val surfaceColor = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorSurface)
+                val onSurfaceColor = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorOnSurface)
+                binding.cardActiveHub.setCardBackgroundColor(surfaceColor)
+                setHubTextColor(onSurfaceColor)
             }
         }
     }
@@ -921,10 +1015,14 @@ class MainActivity : AppCompatActivity() {
             change < 0 -> " ▼"
             else -> ""
         }
+        
+        val onSurfaceColor = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorOnSurface)
+        val onSurfaceVariantColor = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorOnSurfaceVariant)
+
         val textColor = when {
             change > 0 -> Color.parseColor("#00C853")
             change < 0 -> Color.parseColor("#D50000")
-            else -> Color.BLACK
+            else -> onSurfaceColor
         }
 
         if (valueView != null) {
@@ -943,7 +1041,7 @@ class MainActivity : AppCompatActivity() {
 
             val labelView = TextView(this).apply {
                 text = label
-                setTextColor(Color.parseColor("#999999"))
+                setTextColor(onSurfaceVariantColor)
                 textSize = 9f * responsiveScale
                 setPadding(0, (4 * responsiveScale).toInt(), 0, 0)
             }

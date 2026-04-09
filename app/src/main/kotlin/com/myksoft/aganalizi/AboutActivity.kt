@@ -28,7 +28,12 @@ class AboutActivity : AppCompatActivity() {
         binding = ActivityAboutBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.txtVersion.text = getString(R.string.version_label, "0.0.2")
+        val versionName = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (e: Exception) {
+            "0.0.4"
+        }
+        binding.txtVersion.text = getString(R.string.version_label, versionName)
         binding.txtDeveloper.text = getString(R.string.developer_label, "MYK Soft")
 
         binding.btnOpenLogs.setOnClickListener {
