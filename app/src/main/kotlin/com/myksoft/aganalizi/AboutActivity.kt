@@ -65,13 +65,18 @@ class AboutActivity : AppCompatActivity() {
                 file
             )
 
+            // Use ACTION_SENDTO with mailto: as a selector to filter only email apps
+            val selectorIntent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse("mailto:")
+            }
+
             val emailIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
                 putExtra(Intent.EXTRA_EMAIL, arrayOf("mustafa.yasar.kar@gmail.com"))
                 putExtra(Intent.EXTRA_SUBJECT, "Ağ Analizi Uygulaması Geri Bildirim")
-                putExtra(Intent.EXTRA_TEXT, "Merhaba,\n\nUygulama hakkındaki geri bildirimim aşağıdadır:\n\n[Buraya mesajınızı yazın]\n\n--- Sistem Logları Ektedir ---")
+                putExtra(Intent.EXTRA_TEXT, "Merhaba,\n\nUygulama hakkındaki geri bildirimim aşağıdadır:\n\n[Buraya mesajınızı yazın]\n\n--- Sistem Logları Ektedir ---\n\nCihaz: ${android.os.Build.MODEL} (Android ${android.os.Build.VERSION.RELEASE})")
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                selector = selectorIntent
             }
             
             startActivity(Intent.createChooser(emailIntent, "Geri Bildirim Gönder"))
