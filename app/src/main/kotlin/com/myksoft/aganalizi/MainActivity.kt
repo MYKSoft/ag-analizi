@@ -821,46 +821,54 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun runDownloadTest(updateUi: (String, Float, Int) -> Unit): Double {
-        var inputStream: InputStream? = null
-        return try {
-            // Use 1GB instead of 2GB to be more compatible with server limits, still enough for 10s at 800Mbps
-            val url = URL("https://speed.cloudflare.com/__down?bytes=1000000000") 
-            val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connectTimeout = 10000
-            connection.readTimeout = 30000
-            
-            val startTime = System.currentTimeMillis()
-            val testDuration = 10000L // 10 seconds
-            inputStream = connection.inputStream
-            val buffer = ByteArray(32768) // Larger buffer
-            var totalBytes = 0L
-            var read = 0
-            var lastUpdateTime = startTime
-            
-            val speeds = mutableListOf<Double>()
-            
-            while (isSpeedTestRunning && inputStream.read(buffer).also { read = it } != -1) {
-                totalBytes += read
-                val currentTime = System.currentTimeMillis()
-                
-                if (currentTime - lastUpdateTime > 500) {
-                    val elapsed = currentTime - startTime
-                    val timeInSeconds = elapsed / 1000.0
-                    val speedMbps = (totalBytes * 8 / 1_000_000.0) / timeInSeconds
-                    speeds.add(speedMbps)
-                    
-                    val progress = (elapsed.toFloat() / testDuration).coerceIn(0f, 1f)
-                    val remaining = ((testDuration - elapsed) / 1000).toInt().coerceAtLeast(0)
+        val startTime = System.currentTimeMillis()
+        val testDuration = 10000L // 10 seconds
+        val speeds = mutableListOf<Double>()
+        var totalBytes = 0L
+        var lastUpdateTime = startTime
 
-                    withContext(Dispatchers.Main) {
-                        updateUi(String.format(Locale.US, "%.1f Mbps", speedMbps), progress, remaining)
+        return try {
+            // Use a loop to download multiple chunks if necessary to fill the 10 seconds
+            while (isSpeedTestRunning && System.currentTimeMillis() - startTime < testDuration) {
+                // 100MB chunks are safer and supported by most CDNs
+                val url = URL("https://speed.cloudflare.com/__down?bytes=100000000") 
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 10000
+                connection.readTimeout = 15000
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+                
+                connection.inputStream.use { inputStream ->
+                    val buffer = ByteArray(32768)
+                    var read = 0
+                    
+                    while (isSpeedTestRunning && inputStream.read(buffer).also { read = it } != -1) {
+                        totalBytes += read
+                        val currentTime = System.currentTimeMillis()
+                        
+                        if (currentTime - lastUpdateTime > 500) {
+                            val elapsed = currentTime - startTime
+                            val timeInSeconds = elapsed / 1000.0
+                            val speedMbps = (totalBytes * 8 / 1_000_000.0) / timeInSeconds
+                            speeds.add(speedMbps)
+                            
+                            val progress = (elapsed.toFloat() / testDuration).coerceIn(0f, 1f)
+                            val remaining = ((testDuration - elapsed) / 1000).toInt().coerceAtLeast(0)
+
+                            withContext(Dispatchers.Main) {
+                                updateUi(String.format(Locale.US, "%.1f Mbps", speedMbps), progress, remaining)
+                            }
+                            lastUpdateTime = currentTime
+                        }
+                        
+                        // Stop after 10 seconds
+                        if (currentTime - startTime >= testDuration) {
+                            break
+                        }
                     }
-                    lastUpdateTime = currentTime
                 }
                 
-                // Stop after 10 seconds
-                if (currentTime - startTime >= testDuration) {
+                if (System.currentTimeMillis() - startTime >= testDuration) {
                     break
                 }
             }
@@ -868,10 +876,8 @@ class MainActivity : AppCompatActivity() {
             if (!isSpeedTestRunning || speeds.isEmpty()) return 0.0
             speeds.average()
         } catch (e: Exception) {
-            addLog("Download Hatası: ${e.message}")
+            addLog("Download Hatası: ${e.javaClass.simpleName} - ${e.message}")
             -1.0
-        } finally {
-            try { inputStream?.close() } catch (e: Exception) {}
         }
     }
 
