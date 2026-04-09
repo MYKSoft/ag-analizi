@@ -827,17 +827,32 @@ class MainActivity : AppCompatActivity() {
         var totalBytes = 0L
         var lastUpdateTime = startTime
 
+        // List of reliable speed test endpoints
+        val testUrls = listOf(
+            "https://cachefly.cachefly.net/100mb.test",
+            "https://speed.cloudflare.com/__down?bytes=100000000",
+            "http://speedtest-ams3.digitalocean.com/100mb.test"
+        )
+
         return try {
-            // Use a loop to download multiple chunks if necessary to fill the 10 seconds
+            var urlIndex = 0
             while (isSpeedTestRunning && System.currentTimeMillis() - startTime < testDuration) {
-                // 100MB chunks are safer and supported by most CDNs
-                val url = URL("https://speed.cloudflare.com/__down?bytes=100000000") 
+                val currentUrl = testUrls[urlIndex % testUrls.size]
+                val url = URL(currentUrl) 
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 10000
                 connection.readTimeout = 15000
                 connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
                 
+                val responseCode = connection.responseCode
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    addLog("Download Sunucu Hatası ($responseCode): $currentUrl")
+                    urlIndex++ // Try next URL
+                    if (urlIndex >= testUrls.size * 2) break // Avoid infinite loop if all fail
+                    continue
+                }
+
                 connection.inputStream.use { inputStream ->
                     val buffer = ByteArray(32768)
                     var read = 0
@@ -871,6 +886,7 @@ class MainActivity : AppCompatActivity() {
                 if (System.currentTimeMillis() - startTime >= testDuration) {
                     break
                 }
+                urlIndex++ // Move to next chunk/URL if needed
             }
             
             if (!isSpeedTestRunning || speeds.isEmpty()) return 0.0
