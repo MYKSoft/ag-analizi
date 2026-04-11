@@ -19,3 +19,19 @@ captures/
 # Ignore all jars except the wrapper
 **/*.jar
 !gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio specific
+.idea/
+*.iml
+.navigation/
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/gradle.xml
+.idea/assetWizardSettings.xml
+.idea/dictionaries
+.idea/libraries
+.idea/caches
+.idea/modules.xml
+.idea/vcs.xml
+.idea/navEditor.xml
+.idea/runConfigurations.xml
