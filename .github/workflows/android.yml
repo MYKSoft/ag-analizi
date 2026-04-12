@@ -56,9 +56,8 @@ jobs:
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
-        chmod +x gradlew
-        ./gradlew assembleRelease
-        ./gradlew bundleRelease
+        gradle assembleRelease
+        gradle bundleRelease
         mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Ag.Analizi.Pro.apk
         mv app/build/outputs/bundle/release/app-release.aab app/build/outputs/bundle/release/Ag.Analizi.Pro.aab
 

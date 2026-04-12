@@ -57,8 +57,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          chmod +x gradlew
-          ./gradlew assembleRelease
+          gradle assembleRelease
           mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Ag.Analizi.Pro.apk
 
       - name: Otomatik Etiket Oluştur (Zaman Damgalı)
