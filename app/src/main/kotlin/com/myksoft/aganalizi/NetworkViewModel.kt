@@ -200,8 +200,14 @@ class NetworkViewModel : ViewModel() {
             details["Yerel IP"] = it.address.hostAddress ?: "Bilinmiyor"
         }
         
-        linkProperties?.dnsServers?.forEachIndexed { index, inetAddress ->
-            details["DNS ${index + 1}"] = inetAddress.hostAddress ?: ""
+        linkProperties?.dnsServers?.filter { it is java.net.Inet4Address }?.forEachIndexed { index, inetAddress ->
+            details["DNS ${index + 1}"] = inetAddress.hostAddress?.replace("/", "") ?: ""
+        }
+        // Eğer IPv4 DNS yoksa IPv6 olanları ekle
+        if (linkProperties?.dnsServers?.none { it is java.net.Inet4Address } == true) {
+            linkProperties.dnsServers.forEachIndexed { index, inetAddress ->
+                details["DNS ${index + 1}"] = inetAddress.hostAddress?.replace("/", "") ?: ""
+            }
         }
         
         linkProperties?.routes?.firstOrNull { it.isDefaultRoute }?.gateway?.let {
