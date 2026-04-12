@@ -67,34 +67,22 @@ jobs:
           echo "VERSION_NAME=v$VERSION_NAME" >> $GITHUB_ENV
           echo "version=$VERSION_NAME" >> $GITHUB_OUTPUT
 
-      - name: GitHub Release Kontrolü
-        id: check_release
-        uses: alex-page/github-app-token@v3
-        with:
-          app_id: ${{ secrets.APP_ID }}
-          private_key: ${{ secrets.APP_PRIVATE_KEY }}
-        continue-on-error: true
-
-      - name: Mevcut Etiketi Kontrol Et
-        id: tag_check
-        run: |
-          if git rev-parse "v${{ steps.get_version.outputs.version }}" >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Sürüm Etiketi Oluştur
-        if: steps.tag_check.outputs.exists == 'false'
         run: |
           TAG_NAME="v${{ steps.get_version.outputs.version }}"
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git tag $TAG_NAME
-          git push origin $TAG_NAME
+          if ! git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            git tag $TAG_NAME
+            git push origin $TAG_NAME
+            echo "created=true" >> $GITHUB_OUTPUT
+          else
+            echo "created=false" >> $GITHUB_OUTPUT
+          fi
+        id: tag_status
 
       - name: GitHub Release Oluştur ve APK Yükle
-        if: steps.tag_check.outputs.exists == 'false'
+        if: steps.tag_status.outputs.created == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.get_version.outputs.version }}
