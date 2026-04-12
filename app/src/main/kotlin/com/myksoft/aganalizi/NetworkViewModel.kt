@@ -33,6 +33,15 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
+data class SystemState(
+    val permissionsGranted: Boolean = false,
+    val gpsEnabled: Boolean = false,
+    val internetConnected: Boolean = false,
+    val isWifiActive: Boolean = false,
+    val isMobileDataActive: Boolean = false,
+    val isAllReady: Boolean = false
+)
+
 data class NetworkState(
     val isWifi: Boolean = false,
     val operatorName: String = "",
@@ -46,8 +55,6 @@ data class NetworkState(
     val technicalDetails: Map<String, String> = emptyMap(),
     val nrDetails: Map<String, String> = emptyMap(),
     val wifiDetails: Map<String, String> = emptyMap(),
-    val isPermissionsGranted: Boolean = false,
-    val isLocationEnabled: Boolean = false,
     val lastUpdateTime: String = ""
 )
 
@@ -64,6 +71,9 @@ class NetworkViewModel : ViewModel() {
 
     private val _networkState = MutableStateFlow(NetworkState())
     val networkState = _networkState.asStateFlow()
+
+    private val _systemState = MutableStateFlow(SystemState())
+    val systemState = _systemState.asStateFlow()
 
     private val _speedTestState = MutableStateFlow(SpeedTestState())
     val speedTestState = _speedTestState.asStateFlow()
@@ -91,19 +101,16 @@ class NetworkViewModel : ViewModel() {
         isMonitoring = true
         viewModelScope.launch {
             while (isMonitoring) {
-                updateState(context)
-                delay(500)
+                checkSystemState(context)
+                if (_systemState.value.isAllReady) {
+                    updateState(context)
+                }
+                delay(1000)
             }
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private fun updateState(context: Context) {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork
-        val capabilities = connectivityManager.getNetworkCapabilities(network)
-        val isWifi = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
-
+    private fun checkSystemState(context: Context) {
         val permissions = arrayOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.READ_PHONE_STATE
@@ -113,16 +120,32 @@ class NetworkViewModel : ViewModel() {
         }
 
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
-        val locationEnabled = locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
-                locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+        val gpsEnabled = locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
 
-        if (!permissionsGranted || !locationEnabled) {
-            _networkState.value = _networkState.value.copy(
-                isPermissionsGranted = permissionsGranted,
-                isLocationEnabled = locationEnabled
-            )
-            return
-        }
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork = connectivityManager.activeNetwork
+        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+        
+        val isWifi = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+        val isMobile = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true
+        val internetConnected = isWifi || isMobile
+
+        _systemState.value = SystemState(
+            permissionsGranted = permissionsGranted,
+            gpsEnabled = gpsEnabled,
+            internetConnected = internetConnected,
+            isWifiActive = isWifi,
+            isMobileDataActive = isMobile,
+            isAllReady = permissionsGranted && gpsEnabled && internetConnected
+        )
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun updateState(context: Context) {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork
+        val capabilities = connectivityManager.getNetworkCapabilities(network)
+        val isWifi = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
 
         val netMonster = NetMonsterFactory.get(context)
         val cells = netMonster.getCells()
@@ -136,53 +159,85 @@ class NetworkViewModel : ViewModel() {
             updateMobileState(context, primaryCell, cells, time)
         } else {
             _networkState.value = NetworkState(
-                isPermissionsGranted = true,
-                isLocationEnabled = true,
                 lastUpdateTime = time
             )
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun updateWifiState(context: Context, time: String) {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        val wifiInfo = wifiManager.connectionInfo
-        val ssid = wifiInfo?.ssid?.replace("\"", "") ?: "Bilinmiyor"
+        
+        val activeNetwork = connectivityManager.activeNetwork
+        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+        val linkProperties = connectivityManager.getLinkProperties(activeNetwork)
+        
+        // WifiInfo'yu alma - Modern ve yedekli yöntem
+        @Suppress("DEPRECATION")
+        val wifiInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // ConnectivityManager üzerinden deneme
+            val fromCaps = capabilities?.transportInfo as? android.net.wifi.WifiInfo
+            if (fromCaps == null || fromCaps.ssid == android.net.wifi.WifiManager.UNKNOWN_SSID) {
+                // Eğer modern yöntem sonuç vermezse eski yöntemle (deprecated) tekrar dene
+                wifiManager.connectionInfo
+            } else {
+                fromCaps
+            }
+        } else {
+            wifiManager.connectionInfo
+        }
+        
+        var ssid = wifiInfo?.ssid?.replace("\"", "") ?: "Bilinmiyor"
+        if (ssid == android.net.wifi.WifiManager.UNKNOWN_SSID || ssid == "<unknown ssid>") {
+            ssid = "Erişim Yok (Konum Kapalı olabilir)"
+        }
         
         val details = mutableMapOf<String, String>()
-        val dhcp = wifiManager.dhcpInfo
-        details["Yerel IP"] = formatIp(dhcp.ipAddress)
-        details["Alt Ağ Maskesi"] = formatIp(dhcp.netmask)
-        details["Ağ Geçidi"] = formatIp(dhcp.gateway)
-        details["DHCP Sunucusu"] = formatIp(dhcp.serverAddress)
-        details["DNS 1"] = formatIp(dhcp.dns1)
-        details["DNS 2"] = formatIp(dhcp.dns2)
         
-        val freq = wifiInfo.frequency
-        val band = when {
-            freq in 2412..2484 -> "2.4 GHz"
-            freq in 5170..5825 -> "5 GHz"
-            freq in 5945..7125 -> "6 GHz"
-            else -> "Bilinmiyor"
+        // IP Bilgileri (LinkProperties üzerinden - Modern Yol)
+        linkProperties?.linkAddresses?.firstOrNull { it.address is java.net.Inet4Address }?.let {
+            details["Yerel IP"] = it.address.hostAddress ?: "Bilinmiyor"
         }
-        details["Bant"] = band
-        details["Frekans"] = "$freq MHz"
         
-        val channel = if (freq in 2412..2484) (freq - 2412) / 5 + 1 else if (freq in 5170..5825) (freq - 5170) / 5 + 34 else 0
-        if (channel > 0) details["Kanal"] = "$channel"
-
-        details["BSSID"] = wifiInfo.bssid ?: "N/A"
+        linkProperties?.dnsServers?.forEachIndexed { index, inetAddress ->
+            details["DNS ${index + 1}"] = inetAddress.hostAddress ?: ""
+        }
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val standard = when (wifiInfo.wifiStandard) {
-                ScanResult.WIFI_STANDARD_11AX -> "Wi-Fi 6 (ax)"
-                ScanResult.WIFI_STANDARD_11AC -> "Wi-Fi 5 (ac)"
-                ScanResult.WIFI_STANDARD_11N -> "Wi-Fi 4 (n)"
-                else -> "Legacy"
+        linkProperties?.routes?.firstOrNull { it.isDefaultRoute }?.gateway?.let {
+            details["Ağ Geçidi"] = it.hostAddress ?: ""
+        }
+        
+        // Diğer Wi-Fi detayları (wifiInfo üzerinden)
+        wifiInfo?.let { info ->
+            val freq = info.frequency
+            val band = when {
+                freq in 2412..2484 -> "2.4 GHz"
+                freq in 5170..5825 -> "5 GHz"
+                freq in 5945..7125 -> "6 GHz"
+                else -> "Bilinmiyor"
             }
-            details["Standart"] = standard
+            details["Bant"] = band
+            details["Frekans"] = "$freq MHz"
+            
+            val channel = if (freq in 2412..2484) (freq - 2412) / 5 + 1 
+                         else if (freq in 5170..5825) (freq - 5170) / 5 + 34 
+                         else 0
+            if (channel > 0) details["Kanal"] = "$channel"
+            details["BSSID"] = info.bssid ?: "N/A"
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val standard = when (info.wifiStandard) {
+                    ScanResult.WIFI_STANDARD_11AX -> "Wi-Fi 6 (ax)"
+                    ScanResult.WIFI_STANDARD_11AC -> "Wi-Fi 5 (ac)"
+                    ScanResult.WIFI_STANDARD_11N -> "Wi-Fi 4 (n)"
+                    else -> "Legacy"
+                }
+                details["Standart"] = standard
+            }
         }
         
-        val rssi = wifiInfo.rssi
+        val rssi = wifiInfo?.rssi ?: -127
         val quality = when {
             rssi >= -50 -> "Mükemmel"
             rssi >= -60 -> "Çok İyi"
@@ -195,11 +250,9 @@ class NetworkViewModel : ViewModel() {
             isWifi = true,
             wifiSsid = ssid,
             wifiRssi = rssi,
-            wifiLinkSpeed = wifiInfo.linkSpeed,
+            wifiLinkSpeed = wifiInfo?.linkSpeed ?: 0,
             signalQuality = quality,
             wifiDetails = details,
-            isPermissionsGranted = true,
-            isLocationEnabled = true,
             lastUpdateTime = time
         )
     }
@@ -306,8 +359,6 @@ class NetworkViewModel : ViewModel() {
             signalQuality = quality,
             technicalDetails = techDetails,
             nrDetails = nrDetails,
-            isPermissionsGranted = true,
-            isLocationEnabled = true,
             lastUpdateTime = time
         )
     }

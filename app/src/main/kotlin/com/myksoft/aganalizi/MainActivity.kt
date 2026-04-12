@@ -1,19 +1,20 @@
 package com.myksoft.aganalizi
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
 import com.myksoft.aganalizi.ui.theme.NetworkAnalyzerTheme
 import java.io.File
@@ -36,6 +38,15 @@ import java.io.FileOutputStream
 
 class MainActivity : ComponentActivity() {
     private val viewModel: NetworkViewModel by viewModels()
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.entries.all { it.value }
+        if (allGranted) {
+            viewModel.addLog("Tüm izinler kullanıcı tarafından onaylandı.")
+        }
+    }
 
     companion object {
         val logBuffer = StringBuilder()
@@ -47,11 +58,136 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             NetworkAnalyzerTheme {
+                val systemState by viewModel.systemState.collectAsState()
+                
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    NetworkAnalyzerScreen(viewModel)
+                    if (systemState.isAllReady) {
+                        NetworkAnalyzerScreen(viewModel)
+                    } else {
+                        OnboardingScreen(
+                            systemState = systemState,
+                            onRequestPermissions = {
+                                requestPermissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.READ_PHONE_STATE
+                                    )
+                                )
+                            },
+                            onOpenGpsSettings = {
+                                startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                            },
+                            onOpenNetworkSettings = {
+                                startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OnboardingScreen(
+    systemState: SystemState,
+    onRequestPermissions: () -> Unit,
+    onOpenGpsSettings: () -> Unit,
+    onOpenNetworkSettings: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            "Kurulum Gerekiyor",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            "Uygulamanın çalışabilmesi için aşağıdaki izinler ve bağlantılar gereklidir.",
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.outline
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // İzin Durumu
+        RequirementItem(
+            title = "Konum ve Telefon İzni",
+            description = "Şebeke sinyal bilgilerini okumak için gereklidir.",
+            isMet = systemState.permissionsGranted,
+            onClick = onRequestPermissions
+        )
+
+        // GPS Durumu
+        RequirementItem(
+            title = "GPS / Konum Servisi",
+            description = "Baz istasyonu konum analizi için GPS açık olmalıdır.",
+            isMet = systemState.gpsEnabled,
+            onClick = onOpenGpsSettings
+        )
+
+        // İnternet Durumu
+        RequirementItem(
+            title = "İnternet Bağlantısı",
+            description = "Wi-Fi veya Mobil Veri aktif olmalıdır.",
+            isMet = systemState.internetConnected,
+            onClick = onOpenNetworkSettings
+        )
+        
+        Spacer(modifier = Modifier.height(40.dp))
+        
+        if (systemState.permissionsGranted && systemState.gpsEnabled && !systemState.internetConnected) {
+            Text(
+                "İnternete bağlı değilsiniz. Lütfen Wi-Fi veya Mobil Veriyi açın.",
+                color = Color(0xFFE60000),
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun RequirementItem(title: String, description: String, isMet: Boolean, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isMet) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold, color = if (isMet) Color(0xFF2E7D32) else Color(0xFFE65100))
+                Text(description, fontSize = 12.sp, color = Color.Gray)
+            }
+            if (isMet) {
+                Text("✅", fontSize = 24.sp)
+            } else {
+                Button(
+                    onClick = onClick,
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
+                ) {
+                    Text("Etkinleştir", fontSize = 12.sp)
                 }
             }
         }
