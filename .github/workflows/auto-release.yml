@@ -60,21 +60,45 @@ jobs:
           gradle assembleRelease
           mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Ag.Analizi.Pro.apk
 
-      - name: Otomatik Etiket Oluştur (Zaman Damgalı)
-        id: create_tag
+      - name: Versiyon Bilgisini Oku
+        id: get_version
         run: |
-          TAG_NAME="v$(date +'%Y.%m.%d-%H%M')"
-          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          VERSION_NAME=$(grep "versionName =" app/build.gradle.kts | awk -F '"' '{print $2}')
+          echo "VERSION_NAME=v$VERSION_NAME" >> $GITHUB_ENV
+          echo "version=$VERSION_NAME" >> $GITHUB_OUTPUT
+
+      - name: GitHub Release Kontrolü
+        id: check_release
+        uses: alex-page/github-app-token@v3
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+        continue-on-error: true
+
+      - name: Mevcut Etiketi Kontrol Et
+        id: tag_check
+        run: |
+          if git rev-parse "v${{ steps.get_version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Sürüm Etiketi Oluştur
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          TAG_NAME="v${{ steps.get_version.outputs.version }}"
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git tag $TAG_NAME
           git push origin $TAG_NAME
 
       - name: GitHub Release Oluştur ve APK Yükle
+        if: steps.tag_check.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.create_tag.outputs.tag_name }}
-          name: Sürüm ${{ steps.create_tag.outputs.tag_name }}
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: Sürüm ${{ steps.get_version.outputs.version }}
           files: app/build/outputs/apk/release/*.apk
           draft: false
           prerelease: false
