@@ -27,10 +27,11 @@ android {
                 properties.load(propertiesFile.inputStream())
             }
 
-            storeFile = file(properties.getProperty("RELEASE_STORE_FILE") ?: "release.keystore")
-            storePassword = properties.getProperty("RELEASE_STORE_PASSWORD")
-            keyAlias = properties.getProperty("RELEASE_KEY_ALIAS")
-            keyPassword = properties.getProperty("RELEASE_KEY_PASSWORD")
+            // Önce ortam değişkenlerini kontrol et (GitHub Actions için), yoksa local.properties kullan
+            storeFile = file(System.getenv("KEYSTORE_PATH") ?: properties.getProperty("RELEASE_STORE_FILE") ?: "release.keystore")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: properties.getProperty("RELEASE_STORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS") ?: properties.getProperty("RELEASE_KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD") ?: properties.getProperty("RELEASE_KEY_PASSWORD")
         }
     }
 
