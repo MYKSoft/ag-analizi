@@ -1,5 +1,5 @@
 name: Android Build
-
+# Triggering re-build to verify wrapper integrity
 on:
   push:
     branches: [ "main" ]
