@@ -35,3 +35,9 @@ captures/
 .idea/vcs.xml
 .idea/navEditor.xml
 .idea/runConfigurations.xml
+
+# Keystores
+*.keystore
+*.jks
+*.p12
+

@@ -23,7 +23,7 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
-        gradle-version: 8.7
+        gradle-version: 8.9
 
     - name: Decode Keystore
       if: github.event_name != 'pull_request'
@@ -56,8 +56,9 @@ jobs:
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
-        gradle assembleRelease
-        gradle bundleRelease
+        chmod +x gradlew
+        ./gradlew assembleRelease
+        ./gradlew bundleRelease
         mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Ag.Analizi.Pro.apk
         mv app/build/outputs/bundle/release/app-release.aab app/build/outputs/bundle/release/Ag.Analizi.Pro.aab
 
