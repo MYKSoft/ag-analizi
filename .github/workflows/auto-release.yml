@@ -1,4 +1,4 @@
-name: Otomatik APK Yayınlama
+name: Derle ve Paylaş
 
 on:
   push:
@@ -57,7 +57,6 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          chmod +x gradlew
           ./gradlew assembleRelease
           mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/AgAnalizi_v0.0.7.apk
 
