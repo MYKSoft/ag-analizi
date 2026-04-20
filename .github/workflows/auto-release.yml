@@ -27,6 +27,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.13
+          # Gradle wrapper'ı executable olarak işaretle
+          gradle-executable: ./gradlew
 
       - name: Decode Keystore
         shell: python
@@ -57,7 +59,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          ./gradlew assembleRelease
+          ./gradlew :app:assembleRelease
           mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/AgAnalizi_v0.0.7.apk
 
       - name: Versiyon Bilgisini Oku
