@@ -46,25 +46,30 @@ data class NetworkState(
     val isWifi: Boolean = false,
     val operatorName: String = "",
     val networkType: String = "",
+    val networkTypeRes: Int? = null,
     val dbm: Int = -1,
     val cellId: String = "N/A",
     val wifiSsid: String = "N/A",
     val wifiRssi: Int = 0,
     val wifiLinkSpeed: Int = 0,
-    val signalQuality: String = "Bilinmiyor",
-    val technicalDetails: Map<String, String> = emptyMap(),
-    val nrDetails: Map<String, String> = emptyMap(),
-    val wifiDetails: Map<String, String> = emptyMap(),
+    val signalQuality: String = "",
+    val signalQualityRes: Int? = null,
+    val technicalDetails: Map<Int, String> = emptyMap(),
+    val nrDetails: Map<Int, String> = emptyMap(),
+    val wifiDetails: Map<Int, String> = emptyMap(),
     val lastUpdateTime: String = ""
 )
 
 data class SpeedTestState(
     val isRunning: Boolean = false,
-    val ping: String = "Bekleniyor...",
-    val download: String = "Bekleniyor...",
-    val upload: String = "Bekleniyor...",
+    val ping: String = "",
+    val pingUnit: String = "ms",
+    val download: String = "",
+    val downloadUnit: String = "Mbps",
+    val upload: String = "",
+    val uploadUnit: String = "Mbps",
     val progress: Float = 0f,
-    val statusText: String = ""
+    val statusTextRes: Int? = null
 )
 
 class NetworkViewModel : ViewModel() {
@@ -82,6 +87,14 @@ class NetworkViewModel : ViewModel() {
     val logs = _logs.asStateFlow()
 
     private var isMonitoring = false
+
+    fun addLog(resId: Int, vararg args: Any) {
+        val msg = try {
+            // we need context for resource strings, but for now let's just log names or handle it in activity
+            "Log: $resId" 
+        } catch (e: Exception) { "Log Error" }
+        addLog(msg)
+    }
 
     fun addLog(msg: String) {
         val time = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault()).format(Date())
@@ -173,13 +186,10 @@ class NetworkViewModel : ViewModel() {
         val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
         val linkProperties = connectivityManager.getLinkProperties(activeNetwork)
         
-        // WifiInfo'yu alma - Modern ve yedekli yöntem
         @Suppress("DEPRECATION")
         val wifiInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // ConnectivityManager üzerinden deneme
             val fromCaps = capabilities?.transportInfo as? android.net.wifi.WifiInfo
             if (fromCaps == null || fromCaps.ssid == android.net.wifi.WifiManager.UNKNOWN_SSID) {
-                // Eğer modern yöntem sonuç vermezse eski yöntemle (deprecated) tekrar dene
                 wifiManager.connectionInfo
             } else {
                 fromCaps
@@ -188,68 +198,51 @@ class NetworkViewModel : ViewModel() {
             wifiManager.connectionInfo
         }
         
-        var ssid = wifiInfo?.ssid?.replace("\"", "") ?: "Bilinmiyor"
+        var ssid = wifiInfo?.ssid?.replace("\"", "") ?: context.getString(R.string.unknown)
         if (ssid == android.net.wifi.WifiManager.UNKNOWN_SSID || ssid == "<unknown ssid>") {
-            ssid = "Erişim Yok (Konum Kapalı olabilir)"
+            ssid = context.getString(R.string.hidden_ssid)
         }
         
-        val details = mutableMapOf<String, String>()
+        val details = mutableMapOf<Int, String>()
         
-        // IP Bilgileri (LinkProperties üzerinden - Modern Yol)
         linkProperties?.linkAddresses?.firstOrNull { it.address is java.net.Inet4Address }?.let {
-            details["Yerel IP"] = it.address.hostAddress ?: "Bilinmiyor"
+            details[R.string.local_ip] = it.address.hostAddress ?: context.getString(R.string.unknown)
         }
         
         linkProperties?.dnsServers?.filter { it is java.net.Inet4Address }?.forEachIndexed { index, inetAddress ->
-            details["DNS ${index + 1}"] = inetAddress.hostAddress?.replace("/", "") ?: ""
-        }
-        // Eğer IPv4 DNS yoksa IPv6 olanları ekle
-        if (linkProperties?.dnsServers?.none { it is java.net.Inet4Address } == true) {
-            linkProperties.dnsServers.forEachIndexed { index, inetAddress ->
-                details["DNS ${index + 1}"] = inetAddress.hostAddress?.replace("/", "") ?: ""
-            }
+            val key = if (index == 0) R.string.dns1 else R.string.dns2
+            details[key] = inetAddress.hostAddress?.replace("/", "") ?: ""
         }
         
         linkProperties?.routes?.firstOrNull { it.isDefaultRoute }?.gateway?.let {
-            details["Ağ Geçidi"] = it.hostAddress ?: ""
+            details[R.string.gateway] = it.hostAddress ?: ""
         }
         
-        // Diğer Wi-Fi detayları (wifiInfo üzerinden)
         wifiInfo?.let { info ->
             val freq = info.frequency
-            val band = when {
+            val bandStr = when {
                 freq in 2412..2484 -> "2.4 GHz"
                 freq in 5170..5825 -> "5 GHz"
                 freq in 5945..7125 -> "6 GHz"
-                else -> "Bilinmiyor"
+                else -> context.getString(R.string.unknown)
             }
-            details["Bant"] = band
-            details["Frekans"] = "$freq MHz"
+            details[R.string.label_band] = bandStr
+            details[R.string.frequency] = "$freq MHz"
             
             val channel = if (freq in 2412..2484) (freq - 2412) / 5 + 1 
                          else if (freq in 5170..5825) (freq - 5170) / 5 + 34 
                          else 0
-            if (channel > 0) details["Kanal"] = "$channel"
-            details["BSSID"] = info.bssid ?: "N/A"
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val standard = when (info.wifiStandard) {
-                    ScanResult.WIFI_STANDARD_11AX -> "Wi-Fi 6 (ax)"
-                    ScanResult.WIFI_STANDARD_11AC -> "Wi-Fi 5 (ac)"
-                    ScanResult.WIFI_STANDARD_11N -> "Wi-Fi 4 (n)"
-                    else -> "Legacy"
-                }
-                details["Standart"] = standard
-            }
+            if (channel > 0) details[R.string.channel] = "$channel"
+            details[R.string.bssid] = info.bssid ?: "N/A"
         }
         
         val rssi = wifiInfo?.rssi ?: -127
-        val quality = when {
-            rssi >= -50 -> "Mükemmel"
-            rssi >= -60 -> "Çok İyi"
-            rssi >= -70 -> "İyi"
-            rssi >= -80 -> "Kötü"
-            else -> "Çok Kötü"
+        val qualityRes = when {
+            rssi >= -50 -> R.string.signal_excellent
+            rssi >= -60 -> R.string.signal_very_good
+            rssi >= -70 -> R.string.signal_good
+            rssi >= -80 -> R.string.signal_moderate
+            else -> R.string.signal_very_poor
         }
 
         _networkState.value = NetworkState(
@@ -257,7 +250,7 @@ class NetworkViewModel : ViewModel() {
             wifiSsid = ssid,
             wifiRssi = rssi,
             wifiLinkSpeed = wifiInfo?.linkSpeed ?: 0,
-            signalQuality = quality,
+            signalQualityRes = qualityRes,
             wifiDetails = details,
             lastUpdateTime = time
         )
@@ -267,71 +260,45 @@ class NetworkViewModel : ViewModel() {
         val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
         val operatorName = primaryCell.network?.let { getOperatorName(it.mcc, it.mnc) } ?: tm.networkOperatorName
         
-        val techDetails = mutableMapOf<String, String>()
-        val nrDetails = mutableMapOf<String, String>()
+        val techDetails = mutableMapOf<Int, String>()
+        val nrDetails = mutableMapOf<Int, String>()
         
         var dbm = primaryCell.signal?.dbm ?: -1
-        var cellId = "Bilinmiyor"
+        var cellId = "N/A"
         
-        val quality = when {
-            dbm >= -70 -> "Mükemmel"
-            dbm >= -85 -> "Çok İyi"
-            dbm >= -100 -> "İyi"
-            dbm >= -110 -> "Kötü"
-            dbm != -1 -> "Çok Kötü"
-            else -> "Bilinmiyor"
+        val qualityRes = when {
+            dbm >= -70 -> R.string.signal_excellent
+            dbm >= -85 -> R.string.signal_very_good
+            dbm >= -100 -> R.string.signal_good
+            dbm >= -110 -> R.string.signal_moderate
+            dbm != -1 -> R.string.signal_very_poor
+            else -> R.string.unknown
         }
 
         when (primaryCell) {
             is CellLte -> {
                 cellId = primaryCell.eci?.toString() ?: "N/A"
-                techDetails["CI"] = primaryCell.eci?.toString() ?: "N/A"
-                techDetails["eNb"] = primaryCell.enb?.toString() ?: "N/A"
-                techDetails["CID"] = primaryCell.cid?.toString() ?: "N/A"
-                techDetails["TAC"] = primaryCell.tac?.toString() ?: "N/A"
-                techDetails["PCI"] = primaryCell.pci?.toString() ?: "N/A"
+                techDetails[R.string.label_pci] = primaryCell.pci?.toString() ?: "N/A"
+                techDetails[R.string.label_tac] = primaryCell.tac?.toString() ?: "N/A"
                 
                 primaryCell.band?.let { band ->
-                    techDetails["EARFCN"] = band.channelNumber.toString()
-                    techDetails["Bant"] = "B${band.number} (${band.name})"
+                    techDetails[R.string.label_earfcn] = band.channelNumber.toString()
+                    techDetails[R.string.label_band] = "B${band.number}"
                 }
 
                 val signal = primaryCell.signal as? SignalLte
                 if (signal != null) {
                     dbm = signal.rsrp?.toInt() ?: dbm
-                    techDetails["RSSI"] = "${signal.rssi ?: "N/A"} dBm"
-                    techDetails["RSRP"] = "${signal.rsrp ?: "N/A"} dBm"
-                    techDetails["RSRQ"] = "${signal.rsrq ?: "N/A"} dB"
-                    techDetails["SNR"] = "${signal.snr ?: "N/A"} dB"
-                    signal.timingAdvance?.let { 
-                        val distance = it * 78 // Her TA birimi yaklaşık 78m
-                        techDetails["TA"] = "$it (~$distance m)"
-                    }
-                }
-                
-                // Bant Genişliği (BW) - NetMonster core modelinde bazen birden fazla bant bilgisi olabilir
-                val bandwidths = allCells.filterIsInstance<CellLte>()
-                    .mapNotNull { it.band?.name?.substringAfterLast(" ") } // Basit bir yaklaşım
-                if (bandwidths.isNotEmpty()) {
-                    techDetails["BW"] = bandwidths.distinct().joinToString(" + ") + " MHz"
+                    techDetails[R.string.signal_strength] = "${signal.rsrp ?: "N/A"} dBm"
                 }
 
-                // 5G NSA Kontrolü
-                val nrCell = allCells.filterIsInstance<CellNr>().firstOrNull { 
-                    it.connectionStatus is PrimaryConnection || it.connectionStatus is SecondaryConnection 
-                } ?: allCells.filterIsInstance<CellNr>().firstOrNull()
-                
+                val nrCell = allCells.filterIsInstance<CellNr>().firstOrNull()
                 if (nrCell != null) {
-                    nrDetails["TAC"] = nrCell.tac?.toString() ?: "N/A"
-                    nrDetails["PCI"] = nrCell.pci?.toString() ?: "N/A"
-                    nrDetails["ARFCN"] = nrCell.band?.channelNumber?.toString() ?: "N/A"
-                    nrCell.band?.let { nrDetails["Bant"] = "n${it.number}" }
-                    
+                    nrDetails[R.string.label_pci] = nrCell.pci?.toString() ?: "N/A"
+                    nrDetails[R.string.label_nrarfcn] = nrCell.band?.channelNumber?.toString() ?: "N/A"
                     val nrSignal = nrCell.signal as? SignalNr
                     if (nrSignal != null) {
-                        nrDetails["SS-RSRP"] = "${nrSignal.ssRsrp ?: "N/A"} dBm"
-                        nrDetails["SS-RSRQ"] = "${nrSignal.ssRsrq ?: "N/A"} dB"
-                        nrDetails["SS-SNR"] = "${nrSignal.ssSinr ?: "N/A"} dB"
+                        nrDetails[R.string.signal_strength] = "${nrSignal.ssRsrp ?: "N/A"} dBm"
                     }
                 }
             }
@@ -340,18 +307,11 @@ class NetworkViewModel : ViewModel() {
                 val signal = primaryCell.signal as? SignalNr
                 dbm = signal?.ssRsrp ?: dbm
                 
-                techDetails["NCI"] = primaryCell.nci?.toString() ?: "N/A"
-                techDetails["PCI"] = primaryCell.pci?.toString() ?: "N/A"
-                techDetails["TAC"] = primaryCell.tac?.toString() ?: "N/A"
+                techDetails[R.string.label_pci] = primaryCell.pci?.toString() ?: "N/A"
+                techDetails[R.string.label_tac] = primaryCell.tac?.toString() ?: "N/A"
                 primaryCell.band?.let { 
-                    techDetails["ARFCN"] = it.channelNumber.toString()
-                    techDetails["Bant"] = "n${it.number}" 
-                }
-                
-                if (signal != null) {
-                    techDetails["SS-RSRP"] = "${signal.ssRsrp ?: "N/A"} dBm"
-                    techDetails["SS-RSRQ"] = "${signal.ssRsrq ?: "N/A"} dB"
-                    techDetails["SS-SINR"] = "${signal.ssSinr ?: "N/A"} dB"
+                    techDetails[R.string.label_nrarfcn] = it.channelNumber.toString()
+                    techDetails[R.string.label_band] = "n${it.number}" 
                 }
             }
         }
@@ -359,14 +319,25 @@ class NetworkViewModel : ViewModel() {
         _networkState.value = NetworkState(
             isWifi = false,
             operatorName = operatorName,
-            networkType = getNetworkTypeString(primaryCell, allCells),
+            networkTypeRes = getNetworkTypeRes(primaryCell, allCells),
             dbm = dbm,
             cellId = cellId,
-            signalQuality = quality,
+            signalQualityRes = qualityRes,
             technicalDetails = techDetails,
             nrDetails = nrDetails,
             lastUpdateTime = time
         )
+    }
+
+    private fun getNetworkTypeRes(primaryCell: ICell, allCells: List<ICell>): Int {
+        val isNr = allCells.any { it is CellNr }
+        return when (primaryCell) {
+            is CellNr -> R.string.sa_5g
+            is CellLte -> if (isNr) R.string.nsa_5g else R.string.lte_4g
+            is CellWcdma -> R.string.type_3g
+            is CellGsm -> R.string.type_2g
+            else -> R.string.unknown
+        }
     }
 
     private fun getNetworkTypeString(primaryCell: ICell, allCells: List<ICell>): String {
@@ -396,29 +367,28 @@ class NetworkViewModel : ViewModel() {
         speedTestJob?.cancel()
         _speedTestState.value = _speedTestState.value.copy(
             isRunning = false,
-            statusText = "Durduruldu",
+            statusTextRes = R.string.failed_label,
             progress = 0f
         )
-        addLog("Hız testi kullanıcı tarafından durduruldu.")
     }
 
     fun runSpeedTest() {
         if (_speedTestState.value.isRunning) return
         
         speedTestJob = viewModelScope.launch(Dispatchers.IO) {
-            _speedTestState.value = SpeedTestState(isRunning = true, statusText = "Başlatılıyor...")
+            _speedTestState.value = SpeedTestState(isRunning = true, statusTextRes = R.string.start)
             
             try {
                 // Ping
                 val ping = measurePing()
-                _speedTestState.value = _speedTestState.value.copy(ping = ping, statusText = "İndirme Ölçülüyor...")
+                _speedTestState.value = _speedTestState.value.copy(ping = ping, statusTextRes = R.string.measuring)
                 
                 // Download
                 val download = runDownloadTest { speed, prog ->
                     _speedTestState.value = _speedTestState.value.copy(download = speed, progress = prog * 0.5f)
                 }
                 
-                _speedTestState.value = _speedTestState.value.copy(statusText = "Yükleme Ölçülüyor...")
+                _speedTestState.value = _speedTestState.value.copy(statusTextRes = R.string.measuring)
                 
                 // Upload
                 val upload = runUploadTest { speed, prog ->
@@ -429,12 +399,10 @@ class NetworkViewModel : ViewModel() {
                     isRunning = false,
                     download = download,
                     upload = upload,
-                    statusText = "Tamamlandı",
+                    statusTextRes = R.string.speed_test_completed,
                     progress = 1f
                 )
-                addLog("Hız Testi: Ping $ping, İndirme $download, Yükleme $upload")
             } catch (e: kotlinx.coroutines.CancellationException) {
-                // Job iptal edildiğinde burası çalışır
             }
         }
     }

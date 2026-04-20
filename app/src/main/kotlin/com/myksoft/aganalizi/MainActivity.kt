@@ -11,6 +11,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,9 +39,15 @@ import androidx.core.content.FileProvider
 import com.myksoft.aganalizi.ui.theme.NetworkAnalyzerTheme
 import java.io.File
 import java.io.FileOutputStream
+import java.util.Locale
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private val viewModel: NetworkViewModel by viewModels()
+
+    private fun applyLanguage(langCode: String) {
+        val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(langCode)
+        AppCompatDelegate.setApplicationLocales(appLocale)
+    }
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -54,6 +64,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // İlk açılışta dil kontrolü
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        if (!prefs.contains("lang")) {
+            val systemLang = Locale.getDefault().language
+            val supported = listOf("tr", "en", "hi", "zh", "ar")
+            val target = if (supported.contains(systemLang)) systemLang else "en"
+            prefs.edit().putString("lang", target).apply()
+            applyLanguage(target)
+        } else {
+            prefs.getString("lang", "en")?.let { applyLanguage(it) }
+        }
+
         viewModel.startMonitoring(this)
         
         setContent {
@@ -106,40 +129,37 @@ fun OnboardingScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            "Kurulum Gerekiyor",
+            stringResource(R.string.setup_required),
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "Uygulamanın çalışabilmesi için aşağıdaki izinler ve bağlantılar gereklidir.",
+            stringResource(R.string.setup_description),
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.outline
         )
         
         Spacer(modifier = Modifier.height(32.dp))
 
-        // İzin Durumu
         RequirementItem(
-            title = "Konum ve Telefon İzni",
-            description = "Şebeke sinyal bilgilerini okumak için gereklidir.",
+            title = stringResource(R.string.permission_location_phone),
+            description = stringResource(R.string.permission_location_phone_desc),
             isMet = systemState.permissionsGranted,
             onClick = onRequestPermissions
         )
 
-        // GPS Durumu
         RequirementItem(
-            title = "GPS / Konum Servisi",
-            description = "Baz istasyonu konum analizi için GPS açık olmalıdır.",
+            title = stringResource(R.string.gps_location_service),
+            description = stringResource(R.string.gps_location_service_desc),
             isMet = systemState.gpsEnabled,
             onClick = onOpenGpsSettings
         )
 
-        // İnternet Durumu
         RequirementItem(
-            title = "İnternet Bağlantısı",
-            description = "Wi-Fi veya Mobil Veri aktif olmalıdır.",
+            title = stringResource(R.string.internet_connection),
+            description = stringResource(R.string.internet_connection_desc),
             isMet = systemState.internetConnected,
             onClick = onOpenNetworkSettings
         )
@@ -148,7 +168,7 @@ fun OnboardingScreen(
         
         if (systemState.permissionsGranted && systemState.gpsEnabled && !systemState.internetConnected) {
             Text(
-                "İnternete bağlı değilsiniz. Lütfen Wi-Fi veya Mobil Veriyi açın.",
+                stringResource(R.string.no_internet_warning),
                 color = Color(0xFFE60000),
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center
@@ -187,7 +207,7 @@ fun RequirementItem(title: String, description: String, isMet: Boolean, onClick:
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp)
                 ) {
-                    Text("Etkinleştir", fontSize = 12.sp)
+                    Text(stringResource(R.string.enable), fontSize = 12.sp)
                 }
             }
         }
@@ -202,6 +222,44 @@ fun NetworkAnalyzerScreen(viewModel: NetworkViewModel) {
     val logs by viewModel.logs.collectAsState()
     
     var selectedTab by remember { mutableIntStateOf(0) }
+    var showLanguagePicker by remember { mutableStateOf(false) }
+
+    val languages = listOf(
+        "tr" to "🇹🇷 Türkçe",
+        "en" to "🇺🇸 English",
+        "hi" to "🇮🇳 हिन्दी",
+        "zh" to "🇨🇳 中文",
+        "ar" to "🇸🇦 العربية"
+    )
+
+    if (showLanguagePicker) {
+        val context = LocalContext.current
+        AlertDialog(
+            onDismissRequest = { showLanguagePicker = false },
+            title = { Text(stringResource(R.string.select_language)) },
+            text = {
+                Column {
+                    languages.forEach { (code, name) ->
+                        TextButton(
+                            onClick = {
+                                val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+                                prefs.edit().putString("lang", code).apply()
+                                
+                                val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(code)
+                                AppCompatDelegate.setApplicationLocales(appLocale)
+                                
+                                showLanguagePicker = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(name, fontSize = 16.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {}
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -209,12 +267,17 @@ fun NetworkAnalyzerScreen(viewModel: NetworkViewModel) {
                 TopAppBar(
                     title = {
                         Column {
-                            Text("Ağ Analizi", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                            Text(stringResource(R.string.app_name), fontWeight = FontWeight.Bold, fontSize = 20.sp)
                             Text(
-                                "CANLI • ${networkState.lastUpdateTime}",
+                                stringResource(R.string.live_update, networkState.lastUpdateTime),
                                 fontSize = 10.sp,
                                 color = MaterialTheme.colorScheme.outline
                             )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { showLanguagePicker = true }) {
+                            Text("🌐", fontSize = 24.sp)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -233,19 +296,19 @@ fun NetworkAnalyzerScreen(viewModel: NetworkViewModel) {
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                     icon = { Text("📡", fontSize = 20.sp) },
-                    label = { Text("Analiz", fontSize = 12.sp) }
+                    label = { Text(stringResource(R.string.tab_analysis), fontSize = 12.sp) }
                 )
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                     icon = { Text("🚀", fontSize = 20.sp) },
-                    label = { Text("Hız", fontSize = 12.sp) }
+                    label = { Text(stringResource(R.string.tab_speed), fontSize = 12.sp) }
                 )
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     icon = { Text("ℹ️", fontSize = 20.sp) },
-                    label = { Text("Hakkında", fontSize = 12.sp) }
+                    label = { Text(stringResource(R.string.tab_about), fontSize = 12.sp) }
                 )
             }
         }
@@ -293,7 +356,7 @@ fun AnalysisTab(state: NetworkState) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = if (state.isWifi) "Wi-Fi Şebeke" else "Hücresel Şebeke",
+                                text = if (state.isWifi) stringResource(R.string.wifi_network) else stringResource(R.string.cellular_network),
                                 fontSize = (11 * scaleFactor).sp,
                                 color = Color.White.copy(alpha = 0.8f),
                                 lineHeight = (12 * scaleFactor).sp
@@ -305,7 +368,7 @@ fun AnalysisTab(state: NetworkState) {
                                     shape = RoundedCornerShape(4.dp)
                                 ) {
                                     Text(
-                                        text = state.networkType,
+                                        text = state.networkTypeRes?.let { stringResource(it) } ?: state.networkType,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                         fontSize = (10 * scaleFactor).sp,
                                         color = Color.White,
@@ -326,18 +389,18 @@ fun AnalysisTab(state: NetworkState) {
                     
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("SİNYAL GÜCÜ", fontSize = (10 * scaleFactor).sp, color = Color.White.copy(alpha = 0.7f))
+                            Text(stringResource(R.string.signal_strength), fontSize = (10 * scaleFactor).sp, color = Color.White.copy(alpha = 0.7f))
                             Text(
                                 text = "${if (state.isWifi) state.wifiRssi else state.dbm} dBm",
                                 fontSize = (20 * scaleFactor).sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
-                            Text(state.signalQuality, fontSize = (12 * scaleFactor).sp, color = Color.White)
+                            Text(state.signalQualityRes?.let { stringResource(it) } ?: state.signalQuality, fontSize = (12 * scaleFactor).sp, color = Color.White)
                         }
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                if (state.isWifi) "BAĞLANTI HIZI" else "HÜCRE ID",
+                                if (state.isWifi) stringResource(R.string.link_speed_label) else stringResource(R.string.cell_id),
                                 fontSize = (10 * scaleFactor).sp,
                                 color = Color.White.copy(alpha = 0.7f)
                             )
@@ -354,14 +417,14 @@ fun AnalysisTab(state: NetworkState) {
 
             // Teknik Detaylar Bölümü
             DetailSection(
-                title = "TEKNİK DETAYLAR",
-                details = if (state.isWifi) state.wifiDetails else state.technicalDetails,
+                title = stringResource(R.string.label_technical_details),
+                details = (if (state.isWifi) state.wifiDetails else state.technicalDetails).mapKeys { stringResource(it.key) },
                 scaleFactor = scaleFactor
             )
 
             // Alt Detay Bölümü (Sadece 5G NSA varsa)
             if (state.nrDetails.isNotEmpty()) {
-                DetailSection(title = "5G NSA", details = state.nrDetails, scaleFactor = scaleFactor)
+                DetailSection(title = stringResource(R.string.label_5g_nsa), details = state.nrDetails.mapKeys { stringResource(it.key) }, scaleFactor = scaleFactor)
             }
         }
     }
@@ -416,16 +479,16 @@ fun SpeedTestTab(state: SpeedTestState, onStart: () -> Unit, onStop: () -> Unit)
     if (showWarning) {
         AlertDialog(
             onDismissRequest = { showWarning = false },
-            title = { Text("Veri Kullanımı Uyarısı") },
-            text = { Text("Hız testi yüksek miktarda mobil veri tüketebilir. Devam etmek istiyor musunuz?") },
+            title = { Text(stringResource(R.string.data_usage_warning_title)) },
+            text = { Text(stringResource(R.string.data_usage_warning_desc)) },
             confirmButton = {
                 Button(onClick = {
                     showWarning = false
                     onStart()
-                }) { Text("Başlat") }
+                }) { Text(stringResource(R.string.start)) }
             },
             dismissButton = {
-                TextButton(onClick = { showWarning = false }) { Text("İptal") }
+                TextButton(onClick = { showWarning = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -438,9 +501,9 @@ fun SpeedTestTab(state: SpeedTestState, onStart: () -> Unit, onStop: () -> Unit)
         verticalArrangement = Arrangement.SpaceEvenly
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Ağ Performans Testi", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.network_performance_test), fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Text(
-                "Bağlantı hızınızı ve gecikme sürenizi ölçün",
+                stringResource(R.string.measure_speed_desc),
                 fontSize = 14.sp,
                 color = Color.Gray,
                 textAlign = TextAlign.Center
@@ -457,13 +520,13 @@ fun SpeedTestTab(state: SpeedTestState, onStart: () -> Unit, onStop: () -> Unit)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 val valueText = if (state.isRunning) {
-                    if (state.progress < 0.5f) state.download.split(" ")[0]
-                    else state.upload.split(" ")[0]
+                    if (state.progress < 0.5f) state.download.split(" ")[0].ifEmpty { "0.0" }
+                    else state.upload.split(" ")[0].ifEmpty { "0.0" }
                 } else "0.0"
                 
                 Text(
                     text = valueText,
-                    fontSize = if (valueText.contains("Bekleniyor")) 22.sp else 42.sp,
+                    fontSize = 42.sp,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center
@@ -490,9 +553,9 @@ fun SpeedTestTab(state: SpeedTestState, onStart: () -> Unit, onStop: () -> Unit)
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SpeedCard("PING", state.ping, "ms", Modifier.weight(1f))
-            SpeedCard("İNDİRME", state.download.split(" ")[0], "Mbps", Modifier.weight(1f))
-            SpeedCard("YÜKLEME", state.upload.split(" ")[0], "Mbps", Modifier.weight(1f))
+            SpeedCard("PING", state.ping.ifEmpty { "0" }, "ms", Modifier.weight(1f))
+            SpeedCard(stringResource(R.string.rx_speed), state.download.split(" ")[0].ifEmpty { "0.0" }, "Mbps", Modifier.weight(1f))
+            SpeedCard(stringResource(R.string.tx_speed), state.upload.split(" ")[0].ifEmpty { "0.0" }, "Mbps", Modifier.weight(1f))
         }
 
         if (state.isRunning) {
@@ -502,7 +565,7 @@ fun SpeedTestTab(state: SpeedTestState, onStart: () -> Unit, onStop: () -> Unit)
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = state.statusText,
+                    text = state.statusTextRes?.let { stringResource(it) } ?: "",
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -512,7 +575,7 @@ fun SpeedTestTab(state: SpeedTestState, onStart: () -> Unit, onStop: () -> Unit)
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE60000))
                 ) {
-                    Text("Testi Durdur", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.stop_test), fontWeight = FontWeight.Bold)
                 }
             }
         } else {
@@ -521,7 +584,7 @@ fun SpeedTestTab(state: SpeedTestState, onStart: () -> Unit, onStop: () -> Unit)
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Testi Başlat", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.start_test), fontWeight = FontWeight.Bold)
             }
         }
 
@@ -538,7 +601,7 @@ fun SpeedTestTab(state: SpeedTestState, onStart: () -> Unit, onStop: () -> Unit)
             ) {
                 Text("ℹ️", fontSize = 16.sp)
                 Text(
-                    "Doğru sonuçlar için test sırasında aktif indirme yapmadığınızdan emin olun.",
+                    stringResource(R.string.speed_test_info_note),
                     fontSize = 11.sp,
                     color = Color(0xFF5D4037)
                 )
@@ -581,98 +644,100 @@ fun AboutTab(logs: List<String>) {
                 IconButton(onClick = { showLogs = false }) {
                     Text("⬅️")
                 }
-                Text("Sistem Logları", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(stringResource(R.string.system_logs), fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
             LogsTab(logs)
         }
     } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("🚀", fontSize = 48.sp)
-                Text(
-                    "Ağ Analizi",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                
-                val versionName = try {
-                    context.packageManager.getPackageInfo(context.packageName, 0).versionName
-                } catch (e: Exception) { "1.0.0" }
-                
-                Text("Versiyon $versionName", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    Text(
-                        "Mobil ve Wi-Fi ağlarını teknik düzeyde analiz etmek, sinyal kalitesi ve performans ölçümü için geliştirilmiştir.",
-                        modifier = Modifier.padding(12.dp),
-                        textAlign = TextAlign.Center,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp
-                    )
-                }
-            }
-
+        Box(modifier = Modifier.fillMaxSize()) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 0.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Geliştirici", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                Text("MYK Soft", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-                Text("Mustafa Yaşar KAR", fontSize = 13.sp)
-                Text("mustafa.yasar.kar@gmail.com", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = { showLogs = true },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(0.dp)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text("🚀", fontSize = 48.sp)
+                    Text(
+                        stringResource(R.string.app_name),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    val versionName = try {
+                        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.0"
+                    } catch (e: Exception) { "1.0.0" }
+                    
+                    Text(stringResource(R.string.version, versionName), fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                     ) {
-                        Text("📜 Loglar", fontSize = 12.sp)
-                    }
-                    Button(
-                        onClick = { sendFeedback(context) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text("📧 Destek", fontSize = 12.sp)
+                        Text(
+                            stringResource(R.string.about_description),
+                            modifier = Modifier.padding(12.dp),
+                            textAlign = TextAlign.Center,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
                     }
                 }
 
-                OutlinedButton(
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Myasarkar/ag-analizi/blob/main/PRIVACY_POLICY.md"))
-                        context.startActivity(intent)
-                    },
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("🛡️ Gizlilik Politikası", fontSize = 12.sp)
+                    Text(stringResource(R.string.developer), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text("MYK Soft", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Mustafa Yaşar KAR", fontSize = 13.sp)
+                    Text("mustafa.yasar.kar@gmail.com", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { showLogs = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(stringResource(R.string.logs_button), fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = { sendFeedback(context) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(stringResource(R.string.support_button), fontSize = 12.sp)
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Myasarkar/ag-analizi/blob/main/PRIVACY_POLICY.md"))
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(R.string.privacy_policy_button), fontSize = 12.sp)
+                    }
+                    
+                    Text(stringResource(R.string.copyright), fontSize = 9.sp, color = MaterialTheme.colorScheme.outline)
                 }
-                
-                Text("MYK Soft © 2024", fontSize = 9.sp, color = MaterialTheme.colorScheme.outline)
             }
         }
     }
@@ -698,14 +763,14 @@ private fun sendFeedback(context: Context) {
 
         val emailIntent = Intent(Intent.ACTION_SEND).apply {
             putExtra(Intent.EXTRA_EMAIL, arrayOf("mustafa.yasar.kar@gmail.com"))
-            putExtra(Intent.EXTRA_SUBJECT, "Ağ Analizi Uygulaması Geri Bildirim")
-            putExtra(Intent.EXTRA_TEXT, "Merhaba,\n\nUygulama hakkındaki geri bildirimim aşağıdadır:\n\n[Buraya mesajınızı yazın]\n\n--- Sistem Logları Ektedir ---\n\nCihaz: ${android.os.Build.MODEL} (Android ${android.os.Build.VERSION.RELEASE})")
+            putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.feedback_subject))
+            putExtra(Intent.EXTRA_TEXT, context.getString(R.string.feedback_body, android.os.Build.MODEL, android.os.Build.VERSION.RELEASE))
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             selector = selectorIntent
         }
         
-        context.startActivity(Intent.createChooser(emailIntent, "Geri Bildirim Gönder"))
+        context.startActivity(Intent.createChooser(emailIntent, context.getString(R.string.choose_feedback_app)))
     } catch (e: Exception) {
         e.printStackTrace()
     }
