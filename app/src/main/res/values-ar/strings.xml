@@ -23,8 +23,8 @@
     <string name="quality_poor">ضعيف</string>
     <string name="frequency">التردد</string>
     <string name="channel">القناة</string>
-    <string name="tx_speed">سرعة الإرسال</string>
-    <string name="rx_speed">سرعة الاستقبال</string>
+    <string name="tx_speed">سرعة الرفع</string>
+    <string name="rx_speed">سرعة التحميل</string>
     <string name="encryption">التشفير</string>
     <string name="bssid">BSSID</string>
     <string name="status">الحالة</string>
@@ -48,6 +48,8 @@
     <string name="about_description">تم تطوير هذا التطبيق لتحليل شبكات الجوال وWi-Fi على مستوى تقني.</string>
     <string name="sa_5g">5G (SA)</string>
     <string name="nsa_5g">5G (NSA)</string>
+    <string name="nsa_5g_uncertain">5G • NSA - غير محدد / انتقال NSA</string>
+    <string name="sa_5g_uncertain">5G • SA - غير محدد / انتقال SA</string>
     <string name="lte_4g">4G (LTE)</string>
     <string name="type_3g">3G</string>
     <string name="type_2g">2G</string>
@@ -112,6 +114,10 @@
     <string name="waiting_for_permissions_desc">يجب منح الأذونات المطلوبة لكي يعمل التطبيق.</string>
     <string name="grant_permissions">منح الإذن</string>
     <string name="open_settings">فتح الإعدادات</string>
+    <string name="nsa_uncertain_title">حالة 5G NSA غير محددة</string>
+    <string name="nsa_uncertain_desc">على الرغم من أن جهازك يبدو أنه يستقبل 5G (أيقونة 5G في شريط الحالة)، إلا أن نظام أندرويد يبلغ بأنه غير متصل حالياً بأي نطاق 5G NR أو يقوم بإخفاء هذه المعلومات.</string>
+    <string name="nsa_uncertain_reasons">الأسباب المحتملة:\n\n• وضع الخمول: يتصل هاتفك بـ 5G فقط عند وجود حركة بيانات نشطة لتوفير البطارية.\n• ضعف الإشارة: توجد إشارة 5G ولكنها ضعيفة جداً لإقامة اتصال مستقر.\n• تكوين المشغل: ترسل شبكتك مؤشر 5G ولكنها لا تسمح باستخدام البيانات بعد.\n• قيود الجهاز: قد يقوم هاتفك بتفعيل 5G فقط في سيناريوهات محددة.</string>
+    <string name="ok">موافق</string>
     <string name="select_language">اختر اللغة</string>
 
     <string name="help_hub_title">ملخص الشبكة</string>

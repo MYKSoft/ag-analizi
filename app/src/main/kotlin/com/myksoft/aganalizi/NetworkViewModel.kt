@@ -57,7 +57,9 @@ data class NetworkState(
     val technicalDetails: Map<Int, String> = emptyMap(),
     val nrDetails: Map<Int, String> = emptyMap(),
     val wifiDetails: Map<Int, String> = emptyMap(),
-    val lastUpdateTime: String = ""
+    val lastUpdateTime: String = "",
+    val lteBands: String = "",
+    val nrBands: String = ""
 )
 
 data class SpeedTestState(
@@ -189,7 +191,7 @@ class NetworkViewModel : ViewModel() {
         @Suppress("DEPRECATION")
         val wifiInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val fromCaps = capabilities?.transportInfo as? android.net.wifi.WifiInfo
-            if (fromCaps == null || fromCaps.ssid == android.net.wifi.WifiManager.UNKNOWN_SSID) {
+            if (fromCaps == null || fromCaps.ssid == WifiManager.UNKNOWN_SSID) {
                 wifiManager.connectionInfo
             } else {
                 fromCaps
@@ -199,7 +201,7 @@ class NetworkViewModel : ViewModel() {
         }
         
         var ssid = wifiInfo?.ssid?.replace("\"", "") ?: context.getString(R.string.unknown)
-        if (ssid == android.net.wifi.WifiManager.UNKNOWN_SSID || ssid == "<unknown ssid>") {
+        if (ssid == WifiManager.UNKNOWN_SSID) {
             ssid = context.getString(R.string.hidden_ssid)
         }
         
@@ -209,7 +211,7 @@ class NetworkViewModel : ViewModel() {
             details[R.string.local_ip] = it.address.hostAddress ?: context.getString(R.string.unknown)
         }
         
-        linkProperties?.dnsServers?.filter { it is java.net.Inet4Address }?.forEachIndexed { index, inetAddress ->
+        linkProperties?.dnsServers?.filterIsInstance<java.net.Inet4Address>()?.forEachIndexed { index, inetAddress ->
             val key = if (index == 0) R.string.dns1 else R.string.dns2
             details[key] = inetAddress.hostAddress?.replace("/", "") ?: ""
         }
@@ -220,19 +222,21 @@ class NetworkViewModel : ViewModel() {
         
         wifiInfo?.let { info ->
             val freq = info.frequency
-            val bandStr = when {
-                freq in 2412..2484 -> "2.4 GHz"
-                freq in 5170..5825 -> "5 GHz"
-                freq in 5945..7125 -> "6 GHz"
+            val bandStr = when (freq) {
+                in 2412..2484 -> "2.4 GHz"
+                in 5170..5825 -> "5 GHz"
+                in 5945..7125 -> "6 GHz"
                 else -> context.getString(R.string.unknown)
             }
             details[R.string.label_band] = bandStr
             details[R.string.frequency] = "$freq MHz"
             
-            val channel = if (freq in 2412..2484) (freq - 2412) / 5 + 1 
-                         else if (freq in 5170..5825) (freq - 5170) / 5 + 34 
-                         else 0
-            if (channel > 0) details[R.string.channel] = "$channel"
+            val channel = when (freq) {
+                in 2412..2484 -> (freq - 2412) / 5 + 1
+                in 5170..5825 -> (freq - 5170) / 5 + 34
+                else -> 0
+            }
+            if (channel > 0) details[R.string.channel] = channel.toString()
             details[R.string.bssid] = info.bssid ?: "N/A"
         }
         
@@ -258,6 +262,12 @@ class NetworkViewModel : ViewModel() {
 
     private fun updateMobileState(context: Context, primaryCell: ICell, allCells: List<ICell>, time: String) {
         val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        val netMonster = NetMonsterFactory.get(context)
+        
+        // Step 1: Verify Network Type via NetMonster
+        val networkTypeStr = netMonster.getNetworkType(-1).toString()
+        val isNsaAccordingToNetMonster = networkTypeStr.contains("Nsa", ignoreCase = true)
+        
         val operatorName = primaryCell.network?.let { getOperatorName(it.mcc, it.mnc) } ?: tm.networkOperatorName
         
         val techDetails = mutableMapOf<Int, String>()
@@ -265,41 +275,77 @@ class NetworkViewModel : ViewModel() {
         
         var dbm = primaryCell.signal?.dbm ?: -1
         var cellId = "N/A"
-        
-        val qualityRes = when {
-            dbm >= -70 -> R.string.signal_excellent
-            dbm >= -85 -> R.string.signal_very_good
-            dbm >= -100 -> R.string.signal_good
-            dbm >= -110 -> R.string.signal_moderate
-            dbm != -1 -> R.string.signal_very_poor
-            else -> R.string.unknown
+        var lteBandsSummary = ""
+        var nrBandsSummary = ""
+
+        // Step 2: Search for Active NR Cell
+        var nrCell = allCells.asSequence().filterIsInstance<CellNr>().firstOrNull { 
+            it.connectionStatus is PrimaryConnection || it.connectionStatus is SecondaryConnection 
+        }
+
+        // Step 3: Cell Recovery (If active NR not found but system says NSA)
+        if (nrCell == null && isNsaAccordingToNetMonster) {
+            nrCell = allCells.asSequence().filterIsInstance<CellNr>().firstOrNull()
         }
 
         when (primaryCell) {
             is CellLte -> {
-                cellId = primaryCell.eci?.toString() ?: "N/A"
+                val eci = primaryCell.eci
+                cellId = eci?.toString() ?: "N/A"
+                if (eci != null) {
+                    techDetails[R.string.label_ci] = eci.toString()
+                    techDetails[R.string.label_enb] = (eci / 256).toString()
+                    techDetails[R.string.label_cid] = (eci % 256).toString()
+                }
+                
                 techDetails[R.string.label_pci] = primaryCell.pci?.toString() ?: "N/A"
                 techDetails[R.string.label_tac] = primaryCell.tac?.toString() ?: "N/A"
+                techDetails[R.string.label_bandwidth] = primaryCell.bandwidth?.let { "${it / 1000} MHz" } ?: "N/A"
                 
                 primaryCell.band?.let { band ->
+                    val bandInfo = CellUtils.getLteBandInfo(band.channelNumber)
                     techDetails[R.string.label_earfcn] = band.channelNumber.toString()
-                    techDetails[R.string.label_band] = "B${band.number}"
+                    techDetails[R.string.label_band] = bandInfo.band
+                    lteBandsSummary = "4G • LTE ${bandInfo.frequency.replace(" MHz", "")}"
                 }
 
                 val signal = primaryCell.signal as? SignalLte
                 if (signal != null) {
-                    dbm = signal.rsrp?.toInt() ?: dbm
                     techDetails[R.string.signal_strength] = "${signal.rsrp ?: "N/A"} dBm"
+                    techDetails[R.string.label_rsrq] = "${signal.rsrq ?: "N/A"} dB"
+                    techDetails[R.string.label_rssi] = "${signal.rssi ?: "N/A"} dBm"
+                    techDetails[R.string.label_snr] = "${signal.snr ?: "N/A"} dB"
+                    signal.timingAdvance?.let {
+                        val meters = it * 78 // Approx 78 meters per TA unit
+                        techDetails[R.string.label_ta] = "$it ($meters m)"
+                    }
                 }
 
-                val nrCell = allCells.filterIsInstance<CellNr>().firstOrNull()
                 if (nrCell != null) {
+                    // We found an NR cell (either active or recovered)
                     nrDetails[R.string.label_pci] = nrCell.pci?.toString() ?: "N/A"
+                    nrDetails[R.string.label_tac] = nrCell.tac?.toString() ?: "N/A"
                     nrDetails[R.string.label_nrarfcn] = nrCell.band?.channelNumber?.toString() ?: "N/A"
+                    
+                    val bandInfo = CellUtils.getNrBandInfo(nrCell.band?.channelNumber)
+                    nrDetails[R.string.label_band] = bandInfo.band
+                    
+                    if (nrCell.band?.number == 0 || bandInfo.band == "!" || bandInfo.band == "n??") {
+                        nrBandsSummary = context.getString(R.string.nsa_5g_uncertain)
+                    } else {
+                        nrBandsSummary = "5G • NSA ${bandInfo.band} ${bandInfo.frequency}"
+                    }
+                    
                     val nrSignal = nrCell.signal as? SignalNr
                     if (nrSignal != null) {
-                        nrDetails[R.string.signal_strength] = "${nrSignal.ssRsrp ?: "N/A"} dBm"
+                        nrDetails[R.string.label_ssrsrp] = "${nrSignal.ssRsrp ?: "N/A"} dBm"
+                        nrDetails[R.string.label_ssrsrq] = "${nrSignal.ssRsrq ?: "N/A"} dB"
+                        nrDetails[R.string.label_sssnr] = "${nrSignal.ssSinr ?: "N/A"} dB"
                     }
+                } else if (isNsaAccordingToNetMonster) {
+                    // Step 4: Full Fallback (No NR cell object but system says NSA)
+                    nrBandsSummary = context.getString(R.string.nsa_5g_uncertain)
+                    nrDetails[R.string.label_band] = "0"
                 }
             }
             is CellNr -> {
@@ -310,10 +356,32 @@ class NetworkViewModel : ViewModel() {
                 techDetails[R.string.label_pci] = primaryCell.pci?.toString() ?: "N/A"
                 techDetails[R.string.label_tac] = primaryCell.tac?.toString() ?: "N/A"
                 primaryCell.band?.let { 
+                    val bandInfo = CellUtils.getNrBandInfo(it.channelNumber)
                     techDetails[R.string.label_nrarfcn] = it.channelNumber.toString()
-                    techDetails[R.string.label_band] = "n${it.number}" 
+                    techDetails[R.string.label_band] = bandInfo.band
+                    if (it.number == 0) {
+                        nrBandsSummary = context.getString(R.string.sa_5g_uncertain)
+                    } else {
+                        nrBandsSummary = "5G • SA ${bandInfo.band} ${bandInfo.frequency}"
+                    }
+                } ?: run {
+                    nrBandsSummary = context.getString(R.string.sa_5g_uncertain)
+                }
+                
+                if (signal != null) {
+                    techDetails[R.string.label_ssrsrp] = "${signal.ssRsrp ?: "N/A"} dBm"
+                    techDetails[R.string.label_ssrsrq] = "${signal.ssRsrq ?: "N/A"} dB"
+                    techDetails[R.string.label_sssnr] = "${signal.ssSinr ?: "N/A"} dB"
                 }
             }
+        }
+
+        val qualityRes = when {
+            dbm >= -70 -> R.string.signal_excellent
+            dbm >= -85 -> R.string.signal_very_good
+            dbm >= -100 -> R.string.signal_good
+            dbm >= -110 -> R.string.signal_moderate
+            else -> R.string.signal_very_poor
         }
 
         _networkState.value = NetworkState(
@@ -325,18 +393,20 @@ class NetworkViewModel : ViewModel() {
             signalQualityRes = qualityRes,
             technicalDetails = techDetails,
             nrDetails = nrDetails,
-            lastUpdateTime = time
+            lastUpdateTime = time,
+            lteBands = lteBandsSummary,
+            nrBands = nrBandsSummary
         )
     }
 
     private fun getNetworkTypeRes(primaryCell: ICell, allCells: List<ICell>): Int {
-        val isNr = allCells.any { it is CellNr }
+        val isNr = allCells.asSequence().any { it is CellNr }
         return when (primaryCell) {
             is CellNr -> R.string.sa_5g
             is CellLte -> if (isNr) R.string.nsa_5g else R.string.lte_4g
             is CellWcdma -> R.string.type_3g
             is CellGsm -> R.string.type_2g
-            else -> R.string.unknown
+            else -> if (isNr) R.string.nsa_5g else R.string.unknown
         }
     }
 

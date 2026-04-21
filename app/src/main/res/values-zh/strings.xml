@@ -23,8 +23,8 @@
     <string name="quality_poor">较差</string>
     <string name="frequency">频率</string>
     <string name="channel">信道</string>
-    <string name="tx_speed">发送速度</string>
-    <string name="rx_speed">接收速度</string>
+    <string name="tx_speed">上传速度</string>
+    <string name="rx_speed">下载速度</string>
     <string name="encryption">加密</string>
     <string name="bssid">BSSID</string>
     <string name="status">状态</string>
@@ -48,6 +48,8 @@
     <string name="about_description">本应用旨在从技术层面分析移动和 Wi-Fi 网络。</string>
     <string name="sa_5g">5G (SA)</string>
     <string name="nsa_5g">5G (NSA)</string>
+    <string name="nsa_5g_uncertain">5G • NSA - 不确定 / NSA 过渡</string>
+    <string name="sa_5g_uncertain">5G • SA - 不确定 / SA 过渡</string>
     <string name="lte_4g">4G (LTE)</string>
     <string name="type_3g">3G</string>
     <string name="type_2g">2G</string>
@@ -112,6 +114,10 @@
     <string name="waiting_for_permissions_desc">必须授予所需的权限，应用程序才能运行。</string>
     <string name="grant_permissions">授予权限</string>
     <string name="open_settings">打开设置</string>
+    <string name="nsa_uncertain_title">5G NSA 不确定状态</string>
+    <string name="nsa_uncertain_desc">虽然您的设备显示有 5G（状态栏中的 5G 图标），但 Android 系统报告当前未连接到任何 5G NR 频段或正在隐藏此信息。</string>
+    <string name="nsa_uncertain_reasons">可能的原因：\n\n• 空闲模式：为了节省电池，您的手机仅在有活动数据流量时才会连接到 5G。\n• 信号较差：存在 5G 信号，但太弱，无法建立稳定的连接。\n• 运营商配置：您的网络发送 5G 指示器，但尚未授权数据使用。\n• 设备限制：您的手机可能仅在特定场景下激活 5G。</string>
+    <string name="ok">确定</string>
     <string name="select_language">选择语言</string>
 
     <string name="help_hub_title">网络摘要</string>

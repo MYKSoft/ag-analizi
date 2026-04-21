@@ -3,11 +3,9 @@ package com.myksoft.aganalizi
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -29,13 +27,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import com.myksoft.aganalizi.ui.theme.NetworkAnalyzerTheme
 import java.io.File
 import java.io.FileOutputStream
@@ -71,7 +71,7 @@ class MainActivity : AppCompatActivity() {
             val systemLang = Locale.getDefault().language
             val supported = listOf("tr", "en", "hi", "zh", "ar")
             val target = if (supported.contains(systemLang)) systemLang else "en"
-            prefs.edit().putString("lang", target).apply()
+            prefs.edit { putString("lang", target) }
             applyLanguage(target)
         } else {
             prefs.getString("lang", "en")?.let { applyLanguage(it) }
@@ -243,7 +243,7 @@ fun NetworkAnalyzerScreen(viewModel: NetworkViewModel) {
                         TextButton(
                             onClick = {
                                 val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-                                prefs.edit().putString("lang", code).apply()
+                                prefs.edit { putString("lang", code) }
                                 
                                 val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(code)
                                 AppCompatDelegate.setApplicationLocales(appLocale)
@@ -329,117 +329,188 @@ fun NetworkAnalyzerScreen(viewModel: NetworkViewModel) {
 
 @Composable
 fun AnalysisTab(state: NetworkState) {
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val screenHeight = maxHeight
-        // Ekran yüksekliğine göre dinamik font ölçeklendirme - alt sınır yükseltildi
-        val scaleFactor = (screenHeight.value / 800f).coerceIn(0.85f, 1.3f)
-        
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    var showNsaInfo by remember { mutableStateOf(false) }
+
+    if (showNsaInfo) {
+        AlertDialog(
+            onDismissRequest = { showNsaInfo = false },
+            title = { Text(stringResource(R.string.nsa_uncertain_title), fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(stringResource(R.string.nsa_uncertain_desc))
+                    Text(stringResource(R.string.nsa_uncertain_reasons), fontSize = 13.sp, color = MaterialTheme.colorScheme.outline)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showNsaInfo = false }) { Text(stringResource(R.string.ok)) }
+            }
+        )
+    }
+
+    val configuration = LocalConfiguration.current
+    val screenHeight = configuration.screenHeightDp
+    // Ekran yüksekliğine göre dinamik font ölçeklendirme - alt sınır yükseltildi
+    val scaleFactor = (screenHeight / 800f).coerceIn(0.85f, 1.3f)
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Üst bilgi kartı - Artık sadece içeriği kadar yer kaplıyor
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (state.isWifi) Color(0xFF05BEC8) else Color(0xFFE60000)
+            )
         ) {
-            // Üst Bilgi Kartı - Artık sadece içeriği kadar yer kaplıyor
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (state.isWifi) Color(0xFF05BEC8) else Color(0xFFE60000)
-                )
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (state.isWifi) stringResource(R.string.wifi_network) else stringResource(R.string.cellular_network),
+                            fontSize = (11 * scaleFactor).sp,
+                            color = Color.White.copy(alpha = 0.8f),
+                            lineHeight = (12 * scaleFactor).sp
+                        )
+                        if (!state.isWifi) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = state.networkTypeRes?.let { stringResource(it) } ?: state.networkType,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    fontSize = (10 * scaleFactor).sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = if (state.isWifi) state.wifiSsid else state.operatorName,
+                        fontSize = (26 * scaleFactor).sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        lineHeight = (30 * scaleFactor).sp
+                    )
+                    if (!state.isWifi) {
+                        if (state.lteBands.isNotEmpty()) {
                             Text(
-                                text = if (state.isWifi) stringResource(R.string.wifi_network) else stringResource(R.string.cellular_network),
-                                fontSize = (11 * scaleFactor).sp,
-                                color = Color.White.copy(alpha = 0.8f),
-                                lineHeight = (12 * scaleFactor).sp
+                                text = state.lteBands,
+                                fontSize = (14 * scaleFactor).sp,
+                                color = Color.White.copy(alpha = 0.9f)
                             )
-                            if (!state.isWifi) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Surface(
-                                    color = Color.White.copy(alpha = 0.2f),
-                                    shape = RoundedCornerShape(4.dp)
-                                ) {
-                                    Text(
-                                        text = state.networkTypeRes?.let { stringResource(it) } ?: state.networkType,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        fontSize = (10 * scaleFactor).sp,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                        }
+                        if (state.nrBands.isNotEmpty()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = state.nrBands,
+                                    fontSize = (14 * scaleFactor).sp,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
+                                if (state.nrBands.contains(stringResource(R.string.nsa_5g_uncertain).split(" ")[0]) || 
+                                    state.nrBands.contains("Belirsiz") || state.nrBands.contains("Uncertain")) {
+                                    IconButton(
+                                        onClick = { showNsaInfo = true },
+                                        modifier = Modifier.size((18 * scaleFactor).dp)
+                                    ) {
+                                        Text("ⓘ", color = Color.White, fontSize = (14 * scaleFactor).sp)
+                                    }
                                 }
                             }
                         }
-                        Text(
-                            text = if (state.isWifi) state.wifiSsid else state.operatorName,
-                            fontSize = (26 * scaleFactor).sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            maxLines = 1,
-                            lineHeight = (30 * scaleFactor).sp
-                        )
                     }
-                    
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(stringResource(R.string.signal_strength), fontSize = (10 * scaleFactor).sp, color = Color.White.copy(alpha = 0.7f))
-                            Text(
-                                text = "${if (state.isWifi) state.wifiRssi else state.dbm} dBm",
-                                fontSize = (20 * scaleFactor).sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Text(state.signalQualityRes?.let { stringResource(it) } ?: state.signalQuality, fontSize = (12 * scaleFactor).sp, color = Color.White)
-                        }
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                if (state.isWifi) stringResource(R.string.link_speed_label) else stringResource(R.string.cell_id),
-                                fontSize = (10 * scaleFactor).sp,
-                                color = Color.White.copy(alpha = 0.7f)
-                            )
-                            Text(
-                                text = if (state.isWifi) "${state.wifiLinkSpeed} Mbps" else state.cellId,
-                                fontSize = (20 * scaleFactor).sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
+                }
+                
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(stringResource(R.string.signal_strength), fontSize = (10 * scaleFactor).sp, color = Color.White.copy(alpha = 0.7f))
+                        Text(
+                            text = "${if (state.isWifi) state.wifiRssi else state.dbm} dBm",
+                            fontSize = (20 * scaleFactor).sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(state.signalQualityRes?.let { stringResource(it) } ?: state.signalQuality, fontSize = (12 * scaleFactor).sp, color = Color.White)
+                    }
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            if (state.isWifi) stringResource(R.string.link_speed_label) else stringResource(R.string.cell_id),
+                            fontSize = (10 * scaleFactor).sp,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                        Text(
+                            text = if (state.isWifi) "${state.wifiLinkSpeed} Mbps" else state.cellId,
+                            fontSize = (20 * scaleFactor).sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 }
             }
+        }
 
-            // Teknik Detaylar Bölümü
+        // Teknik detaylar bölümü
+        DetailSection(
+            title = stringResource(R.string.label_technical_details),
+            details = (if (state.isWifi) state.wifiDetails else state.technicalDetails).mapKeys { stringResource(it.key) },
+            scaleFactor = scaleFactor,
+            bandTag = if (!state.isWifi) state.technicalDetails[R.string.label_band]?.replace("B", "") else null
+        )
+
+        // Alt detay bölümü (Sadece 5G NSA varsa)
+        if (state.nrDetails.isNotEmpty()) {
             DetailSection(
-                title = stringResource(R.string.label_technical_details),
-                details = (if (state.isWifi) state.wifiDetails else state.technicalDetails).mapKeys { stringResource(it.key) },
-                scaleFactor = scaleFactor
+                title = stringResource(R.string.label_5g_nsa), 
+                details = state.nrDetails.mapKeys { stringResource(it.key) }, 
+                scaleFactor = scaleFactor,
+                bandTag = state.nrDetails[R.string.label_band]?.replace("n", "")
             )
-
-            // Alt Detay Bölümü (Sadece 5G NSA varsa)
-            if (state.nrDetails.isNotEmpty()) {
-                DetailSection(title = stringResource(R.string.label_5g_nsa), details = state.nrDetails.mapKeys { stringResource(it.key) }, scaleFactor = scaleFactor)
-            }
         }
     }
 }
 
 @Composable
-fun DetailSection(title: String, details: Map<String, String>, modifier: Modifier = Modifier, scaleFactor: Float) {
+fun DetailSection(title: String, details: Map<String, String>, modifier: Modifier = Modifier, scaleFactor: Float, bandTag: String? = null) {
     Column(modifier = modifier) {
-        Text(
-            text = title,
-            fontSize = (11 * scaleFactor).sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = title,
+                fontSize = (11 * scaleFactor).sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            if (bandTag != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Surface(
+                    color = Color(0xFFE8F5E9),
+                    shape = RoundedCornerShape(4.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2E7D32))
+                ) {
+                    Text(
+                        text = "Band: $bandTag",
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        fontSize = (10 * scaleFactor).sp,
+                        color = Color(0xFF2E7D32),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -669,7 +740,7 @@ fun AboutTab(logs: List<String>) {
                     
                     val versionName = try {
                         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.0"
-                    } catch (e: Exception) { "1.0.0" }
+                    } catch (_: Exception) { "1.0.0" }
                     
                     Text(stringResource(R.string.version, versionName), fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                     
@@ -727,7 +798,7 @@ fun AboutTab(logs: List<String>) {
 
                     OutlinedButton(
                         onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Myasarkar/ag-analizi/blob/main/PRIVACY_POLICY.md"))
+                            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/Myasarkar/ag-analizi/blob/main/PRIVACY_POLICY.md".toUri())
                             context.startActivity(intent)
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -757,22 +828,17 @@ private fun sendFeedback(context: Context) {
             file
         )
 
-        val selectorIntent = Intent(Intent.ACTION_SENDTO).apply {
-            data = Uri.parse("mailto:")
-        }
-
         val emailIntent = Intent(Intent.ACTION_SEND).apply {
+            data = "mailto:".toUri()
             putExtra(Intent.EXTRA_EMAIL, arrayOf("mustafa.yasar.kar@gmail.com"))
             putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.feedback_subject))
             putExtra(Intent.EXTRA_TEXT, context.getString(R.string.feedback_body, android.os.Build.MODEL, android.os.Build.VERSION.RELEASE))
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            selector = selectorIntent
         }
         
         context.startActivity(Intent.createChooser(emailIntent, context.getString(R.string.choose_feedback_app)))
-    } catch (e: Exception) {
-        e.printStackTrace()
+    } catch (_: Exception) {
     }
 }
 
@@ -788,34 +854,4 @@ fun LogsTab(logs: List<String>) {
             HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
         }
     }
-}
-
-@Composable
-fun SpeedItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun DetailRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-        fontSize = 16.sp
-    )
 }

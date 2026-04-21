@@ -23,8 +23,8 @@
     <string name="quality_poor">Poor</string>
     <string name="frequency">Frequency</string>
     <string name="channel">Channel</string>
-    <string name="tx_speed">Tx Speed</string>
-    <string name="rx_speed">Rx Speed</string>
+    <string name="tx_speed">Upload Speed</string>
+    <string name="rx_speed">Download Speed</string>
     <string name="encryption">Encryption</string>
     <string name="bssid">BSSID</string>
     <string name="status">Status</string>
@@ -48,6 +48,8 @@
     <string name="about_description">This application is developed to analyze mobile and Wi-Fi networks at a technical level.</string>
     <string name="sa_5g">5G (SA)</string>
     <string name="nsa_5g">5G (NSA)</string>
+    <string name="nsa_5g_uncertain">5G • NSA - Uncertain / NSA Transition</string>
+    <string name="sa_5g_uncertain">5G • SA - Uncertain / SA Transition</string>
     <string name="lte_4g">4G (LTE)</string>
     <string name="type_3g">3G</string>
     <string name="type_2g">2G</string>
@@ -112,6 +114,10 @@
     <string name="waiting_for_permissions_desc">Required permissions must be granted for the application to function.</string>
     <string name="grant_permissions">Grant Permission</string>
     <string name="open_settings">Open Settings</string>
+    <string name="nsa_uncertain_title">5G NSA Uncertain State</string>
+    <string name="nsa_uncertain_desc">Although your device appears to have 5G (5G icon in status bar), the Android system reports that it is not currently connected to any 5G NR band or is hiding this information.</string>
+    <string name="nsa_uncertain_reasons">Possible Reasons:\n\n• Idle Mode: Your phone connects to 5G only when there is active data traffic to save battery.\n• Poor Signal: A 5G signal exists but is too weak to establish a stable connection.\n• Carrier Configuration: Your network sends the 5G indicator but doesn\'t yet authorize data usage.\n• Device Restriction: Your phone might activate 5G only in specific scenarios.</string>
+    <string name="ok">OK</string>
     <string name="select_language">Select Language</string>
 
     <!-- Help / Info Strings -->

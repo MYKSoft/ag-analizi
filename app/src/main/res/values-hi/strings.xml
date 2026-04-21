@@ -23,8 +23,8 @@
     <string name="quality_poor">खराब</string>
     <string name="frequency">आवृत्ति</string>
     <string name="channel">चैनल</string>
-    <string name="tx_speed">Tx गति</string>
-    <string name="rx_speed">Rx गति</string>
+    <string name="tx_speed">अपलोड गति</string>
+    <string name="rx_speed">डाउनलोड गति</string>
     <string name="encryption">एन्क्रिप्शन</string>
     <string name="bssid">BSSID</string>
     <string name="status">स्थिति</string>
@@ -48,6 +48,8 @@
     <string name="about_description">यह एप्लिकेशन मोबाइल और वाई-फाई नेटवर्क का तकनीकी स्तर पर विश्लेषण करने के लिए विकसित किया गया है।</string>
     <string name="sa_5g">5G (SA)</string>
     <string name="nsa_5g">5G (NSA)</string>
+    <string name="nsa_5g_uncertain">5G • NSA - अनिश्चित / NSA संक्रमण</string>
+    <string name="sa_5g_uncertain">5G • SA - अनिश्चित / SA संक्रमण</string>
     <string name="lte_4g">4G (LTE)</string>
     <string name="type_3g">3G</string>
     <string name="type_2g">2G</string>
@@ -112,6 +114,10 @@
     <string name="waiting_for_permissions_desc">एप्लिकेशन के कार्य करने के लिए आवश्यक अनुमतियां दी जानी चाहिए।</string>
     <string name="grant_permissions">अनुमति दें</string>
     <string name="open_settings">सेटिंग्स खोलें</string>
+    <string name="nsa_uncertain_title">5G NSA अनिश्चित अवस्था</string>
+    <string name="nsa_uncertain_desc">यद्यपि आपके डिवाइस में 5G (स्टेटस बार में 5G आइकन) दिखाई देता है, एंड्रॉइड सिस्टम रिपोर्ट करता है कि वह वर्तमान में किसी भी 5G NR बैंड से जुड़ा नहीं है या इस जानकारी को छिपा रहा है।</string>
+    <string name="nsa_uncertain_reasons">संभावित कारण:\n\n• आइडल मोड: बैटरी बचाने के लिए आपका फोन केवल सक्रिय डेटा ट्रैफ़िक होने पर ही 5G से जुड़ता है।\n• खराब सिग्नल: 5G सिग्नल मौजूद है लेकिन स्थिर कनेक्शन स्थापित करने के लिए बहुत कमजोर है।\n• कैरियर कॉन्फ़िगरेशन: आपका नेटवर्क 5G इंडिकेटर भेजता है लेकिन अभी डेटा उपयोग अधिकृत नहीं करता है।\n• डिवाइस प्रतिबंध: आपका फोन केवल विशिष्ट परिदृश्यों में ही 5G को सक्रिय कर सकता है।</string>
+    <string name="ok">ठीक है</string>
     <string name="select_language">भाषा चुनें</string>
 
     <string name="help_hub_title">नेटवर्क सारांश</string>

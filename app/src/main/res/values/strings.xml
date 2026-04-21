@@ -23,8 +23,8 @@
     <string name="quality_poor">Zayıf</string>
     <string name="frequency">Frekans</string>
     <string name="channel">Kanal</string>
-    <string name="tx_speed">Tx Hızı</string>
-    <string name="rx_speed">Rx Hızı</string>
+    <string name="tx_speed">Yükleme Hızı</string>
+    <string name="rx_speed">İndirme Hızı</string>
     <string name="encryption">Şifreleme</string>
     <string name="bssid">BSSID</string>
     <string name="status">Durum</string>
@@ -48,6 +48,8 @@
     <string name="about_description">Bu uygulama, mobil ve Wi-Fi ağlarını teknik düzeyde analiz etmek için geliştirilmiştir.</string>
     <string name="sa_5g">5G (SA)</string>
     <string name="nsa_5g">5G (NSA)</string>
+    <string name="nsa_5g_uncertain">5G • NSA - Belirsiz / NSA Geçiş</string>
+    <string name="sa_5g_uncertain">5G • SA - Belirsiz / NSA Geçiş</string>
     <string name="lte_4g">4G (LTE)</string>
     <string name="type_3g">3G</string>
     <string name="type_2g">2G</string>
@@ -65,12 +67,22 @@
     <string name="security_open">Açık (Güvensiz)</string>
     <string name="security_hidden">Gizli (Konum Gerekli)</string>
     <string name="label_technical_details">TEKNİK DETAYLAR</string>
-    <string name="label_pci">PCI (Physical Cell ID)</string>
-    <string name="label_tac">TAC (Tracking Area Code)</string>
-    <string name="label_bandwidth">Bant Genişliği</string>
+    <string name="label_pci">PCI</string>
+    <string name="label_tac">TAC</string>
+    <string name="label_bandwidth">BW</string>
     <string name="label_earfcn">EARFCN</string>
-    <string name="label_nrarfcn">NR-ARFCN</string>
+    <string name="label_nrarfcn">ARFCN</string>
     <string name="label_band">Band</string>
+    <string name="label_rsrq">RSRQ</string>
+    <string name="label_rssi">RSSI</string>
+    <string name="label_snr">SNR</string>
+    <string name="label_ssrsrp">SS RSRP</string>
+    <string name="label_ssrsrq">SS RSRQ</string>
+    <string name="label_sssnr">SS SNR</string>
+    <string name="label_ci">CI</string>
+    <string name="label_enb">eNb</string>
+    <string name="label_cid">CID</string>
+    <string name="label_ta">TA</string>
     <string name="label_5g_nsa">5G NSA</string>
     <string name="all_permissions_granted">Tüm izinler kullanıcı tarafından onaylandı.</string>
     <string name="setup_required">Kurulum Gerekiyor</string>
@@ -112,6 +124,10 @@
     <string name="waiting_for_permissions_desc">Uygulamanın çalışması için gerekli izinlerin verilmesi gerekmektedir.</string>
     <string name="grant_permissions">İzin Ver</string>
     <string name="open_settings">Ayarları Aç</string>
+    <string name="nsa_uncertain_title">5G NSA Belirsiz Durumu</string>
+    <string name="nsa_uncertain_desc">Cihazınız 5G çekiyor gibi görünmesine (durum çubuğunda 5G ikonu) rağmen Android sistemi şu an herhangi bir 5G NR bandına bağlı olmadığını veya bu bilgiyi gizlediğini raporluyor.</string>
+    <string name="nsa_uncertain_reasons">Muhtemel Nedenler:\n\n• Boşta Bekleme: Telefonunuz pil tasarrufu için sadece veri trafiği olduğunda 5G\'ye bağlanır.\n• Sinyal Yetersizliği: 5G sinyali var ancak kararlı bir bağlantı kurmak için çok zayıf.\n• Operatör Yapılandırması: Şebekeniz 5G işaretini gönderiyor ancak henüz veri kullanımı için onay vermiyor.\n• Cihaz Kısıtlaması: Telefonunuz 5G\'yi sadece belirli senaryolarda aktif ediyor olabilir.</string>
+    <string name="ok">Tamam</string>
     <string name="select_language">Dil Seçin</string>
 
     <!-- Help / Info Strings -->

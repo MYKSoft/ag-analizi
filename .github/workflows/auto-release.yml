@@ -23,14 +23,8 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Gradle Wrapper Oluştur
-        run: |
-          gradle wrapper
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: 8.13
 
       - name: Decode Keystore
         shell: python
@@ -54,21 +48,15 @@ jobs:
               print(f"Error: Could not decode keystore. {e}")
               exit(1)
 
-      - name: APK Derle (Release)
+      - name: Bundle Derle (AAB)
         env:
           KEYSTORE_PATH: release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          ./gradlew :app:assembleRelease
-          mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/AgAnalizi_v0.0.7.apk
-
-      - name: Versiyon Bilgisini Oku
-        id: get_version
-        run: |
-          VERSION_NAME=$(grep "versionName =" app/build.gradle.kts | awk -F '"' '{print $2}')
-          echo "version=$VERSION_NAME" >> $GITHUB_OUTPUT
+          ./gradlew :app:bundleRelease
+          mv app/build/outputs/bundle/release/app-release.aab app/build/outputs/bundle/release/AgAnalizi_v${{ steps.get_version.outputs.version }}.aab
 
       - name: Sürüm Etiketi Oluştur
         run: |
@@ -84,13 +72,14 @@ jobs:
           fi
         id: tag_status
 
-      - name: GitHub Release Oluştur ve APK Yükle
+      - name: GitHub Release Oluştur ve Yükle
         if: steps.tag_status.outputs.created == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.get_version.outputs.version }}
           name: Sürüm ${{ steps.get_version.outputs.version }}
-          files: app/build/outputs/apk/release/*.apk
+          files: |
+            app/build/outputs/bundle/release/*.aab
           draft: false
           prerelease: false
         env:
