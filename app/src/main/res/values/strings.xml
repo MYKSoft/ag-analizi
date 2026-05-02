@@ -66,6 +66,7 @@
     <string name="failed_label">Başarısız</string>
     <string name="security_open">Açık (Güvensiz)</string>
     <string name="security_hidden">Gizli (Konum Gerekli)</string>
+    <string name="label_isp">Servis Sağlayıcı</string>
     <string name="label_technical_details">TEKNİK DETAYLAR</string>
     <string name="label_pci">PCI</string>
     <string name="label_tac">TAC</string>

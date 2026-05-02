@@ -46,7 +46,7 @@ class LogsActivity : AppCompatActivity() {
             val uri: Uri = FileProvider.getUriForFile(
                 this,
                 "$packageName.fileprovider",
-                file
+                file,
             )
 
             val intent = Intent(Intent.ACTION_SEND).apply {

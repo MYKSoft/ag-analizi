@@ -20,7 +20,7 @@ object CellUtils {
             in 38650..39649 -> BandInfo("B40", "2300 MHz")
             in 39650..41589 -> BandInfo("B41", "2500 MHz")
             else -> {
-                val freq = 2110.0 + 0.1 * (earfcn)
+                val freq = 2110.0 + (0.1 * earfcn)
                 BandInfo("Band Unknown", String.format(java.util.Locale.US, "%.1f MHz", freq))
             }
         }

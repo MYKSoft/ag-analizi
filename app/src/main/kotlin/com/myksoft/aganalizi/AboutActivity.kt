@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -30,7 +31,7 @@ class AboutActivity : AppCompatActivity() {
 
         val versionName = try {
             packageManager.getPackageInfo(packageName, 0).versionName
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "0.0.4"
         }
         binding.txtVersion.text = getString(R.string.version_label, versionName)
@@ -46,7 +47,7 @@ class AboutActivity : AppCompatActivity() {
         }
 
         binding.btnPrivacyPolicy.setOnClickListener {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Myasarkar/ag-analizi/blob/main/PRIVACY_POLICY.md"))
+            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/Myasarkar/ag-analizi/blob/main/PRIVACY_POLICY.md".toUri())
             startActivity(intent)
         }
     }

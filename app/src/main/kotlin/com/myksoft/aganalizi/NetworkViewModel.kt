@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.net.wifi.ScanResult
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.telephony.TelephonyManager
@@ -16,16 +15,15 @@ import androidx.lifecycle.viewModelScope
 import cz.mroczis.netmonster.core.factory.NetMonsterFactory
 import cz.mroczis.netmonster.core.model.cell.*
 import cz.mroczis.netmonster.core.model.signal.*
-import cz.mroczis.netmonster.core.model.band.*
 import cz.mroczis.netmonster.core.model.connection.PrimaryConnection
 import cz.mroczis.netmonster.core.model.connection.SecondaryConnection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -39,7 +37,7 @@ data class SystemState(
     val internetConnected: Boolean = false,
     val isWifiActive: Boolean = false,
     val isMobileDataActive: Boolean = false,
-    val isAllReady: Boolean = false
+    val isAllReady: Boolean = false,
 )
 
 data class NetworkState(
@@ -59,17 +57,21 @@ data class NetworkState(
     val wifiDetails: Map<Int, String> = emptyMap(),
     val lastUpdateTime: String = "",
     val lteBands: String = "",
-    val nrBands: String = ""
+    val nrBands: String = "",
+    val isNrUncertain: Boolean = false,
 )
 
 data class SpeedTestState(
     val isRunning: Boolean = false,
     val ping: String = "",
-    val pingUnit: String = "ms",
-    val download: String = "",
-    val downloadUnit: String = "Mbps",
-    val upload: String = "",
-    val uploadUnit: String = "Mbps",
+    val download: String = "0.0",
+    val upload: String = "0.0",
+    val maxDownload: String = "0.0",
+    val avgDownload: String = "0.0",
+    val maxUpload: String = "0.0",
+    val avgUpload: String = "0.0",
+    val downloadGraphData: List<Float> = emptyList(),
+    val uploadGraphData: List<Float> = emptyList(),
     val progress: Float = 0f,
     val statusTextRes: Int? = null
 )
@@ -89,14 +91,6 @@ class NetworkViewModel : ViewModel() {
     val logs = _logs.asStateFlow()
 
     private var isMonitoring = false
-
-    fun addLog(resId: Int, vararg args: Any) {
-        val msg = try {
-            // we need context for resource strings, but for now let's just log names or handle it in activity
-            "Log: $resId" 
-        } catch (e: Exception) { "Log Error" }
-        addLog(msg)
-    }
 
     fun addLog(msg: String) {
         val time = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault()).format(Date())
@@ -179,6 +173,9 @@ class NetworkViewModel : ViewModel() {
         }
     }
 
+    private var currentSsid: String? = null
+    private var cachedIsp: String? = null
+
     @SuppressLint("MissingPermission")
     private fun updateWifiState(context: Context, time: String) {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -191,7 +188,7 @@ class NetworkViewModel : ViewModel() {
         @Suppress("DEPRECATION")
         val wifiInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val fromCaps = capabilities?.transportInfo as? android.net.wifi.WifiInfo
-            if (fromCaps == null || fromCaps.ssid == WifiManager.UNKNOWN_SSID) {
+            if (fromCaps == null || (fromCaps.ssid == WifiManager.UNKNOWN_SSID)) {
                 wifiManager.connectionInfo
             } else {
                 fromCaps
@@ -205,7 +202,17 @@ class NetworkViewModel : ViewModel() {
             ssid = context.getString(R.string.hidden_ssid)
         }
         
+        if (ssid != currentSsid) {
+            currentSsid = ssid
+            cachedIsp = null // Reset cache on SSID change
+            fetchWifiIsp()
+        }
+        
         val details = mutableMapOf<Int, String>()
+        
+        cachedIsp?.let {
+            details[R.string.label_isp] = it
+        }
         
         linkProperties?.linkAddresses?.firstOrNull { it.address is java.net.Inet4Address }?.let {
             details[R.string.local_ip] = it.address.hostAddress ?: context.getString(R.string.unknown)
@@ -260,15 +267,39 @@ class NetworkViewModel : ViewModel() {
         )
     }
 
+    private fun fetchWifiIsp() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL("https://ipapi.co/org/")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.connectTimeout = 3000
+                connection.readTimeout = 3000
+                val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                val isp = reader.readLine()
+                reader.close()
+                if (!isp.isNullOrBlank()) {
+                    cachedIsp = isp
+                }
+            } catch (e: Exception) {
+                // Fallback or ignore
+            }
+        }
+    }
+
     private fun updateMobileState(context: Context, primaryCell: ICell, allCells: List<ICell>, time: String) {
         val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
         val netMonster = NetMonsterFactory.get(context)
         
         // Step 1: Verify Network Type via NetMonster
-        val networkTypeStr = netMonster.getNetworkType(-1).toString()
+        val networkTypeStr = try {
+            netMonster.getNetworkType(-1).toString()
+        } catch (_: SecurityException) {
+            "Unknown"
+        }
         val isNsaAccordingToNetMonster = networkTypeStr.contains("Nsa", ignoreCase = true)
         
-        val operatorName = primaryCell.network?.let { getOperatorName(it.mcc, it.mnc) } ?: tm.networkOperatorName
+        val operatorNameFromMap = primaryCell.network?.let { getOperatorName(it.mcc, it.mnc) } ?: ""
+        val operatorName = if (operatorNameFromMap.isNotEmpty()) operatorNameFromMap else tm.networkOperatorName.ifEmpty { "Operatör" }
         
         val techDetails = mutableMapOf<Int, String>()
         val nrDetails = mutableMapOf<Int, String>()
@@ -277,6 +308,7 @@ class NetworkViewModel : ViewModel() {
         var cellId = "N/A"
         var lteBandsSummary = ""
         var nrBandsSummary = ""
+        var isNrUncertain = false
 
         // Step 2: Search for Active NR Cell
         var nrCell = allCells.asSequence().filterIsInstance<CellNr>().firstOrNull { 
@@ -309,16 +341,14 @@ class NetworkViewModel : ViewModel() {
                     lteBandsSummary = "4G • LTE ${bandInfo.frequency.replace(" MHz", "")}"
                 }
 
-                val signal = primaryCell.signal as? SignalLte
-                if (signal != null) {
-                    techDetails[R.string.signal_strength] = "${signal.rsrp ?: "N/A"} dBm"
-                    techDetails[R.string.label_rsrq] = "${signal.rsrq ?: "N/A"} dB"
-                    techDetails[R.string.label_rssi] = "${signal.rssi ?: "N/A"} dBm"
-                    techDetails[R.string.label_snr] = "${signal.snr ?: "N/A"} dB"
-                    signal.timingAdvance?.let {
-                        val meters = it * 78 // Approx 78 meters per TA unit
-                        techDetails[R.string.label_ta] = "$it ($meters m)"
-                    }
+                val signal = primaryCell.signal
+                techDetails[R.string.signal_strength] = "${signal.rsrp ?: "N/A"} dBm"
+                techDetails[R.string.label_rsrq] = "${signal.rsrq ?: "N/A"} dB"
+                techDetails[R.string.label_rssi] = "${signal.rssi ?: "N/A"} dBm"
+                techDetails[R.string.label_snr] = "${signal.snr ?: "N/A"} dB"
+                signal.timingAdvance?.let {
+                    val meters = it * 78 // Approx 78 meters per TA unit
+                    techDetails[R.string.label_ta] = "$it ($meters m)"
                 }
 
                 if (nrCell != null) {
@@ -330,28 +360,28 @@ class NetworkViewModel : ViewModel() {
                     val bandInfo = CellUtils.getNrBandInfo(nrCell.band?.channelNumber)
                     nrDetails[R.string.label_band] = bandInfo.band
                     
-                    if (nrCell.band?.number == 0 || bandInfo.band == "!" || bandInfo.band == "n??") {
-                        nrBandsSummary = context.getString(R.string.nsa_5g_uncertain)
+                    nrBandsSummary = if (nrCell.band?.number == 0 || bandInfo.band == "!" || bandInfo.band == "n??") {
+                        isNrUncertain = true
+                        context.getString(R.string.nsa_5g_uncertain)
                     } else {
-                        nrBandsSummary = "5G • NSA ${bandInfo.band} ${bandInfo.frequency}"
+                        "5G • NSA ${bandInfo.band} ${bandInfo.frequency}"
                     }
                     
-                    val nrSignal = nrCell.signal as? SignalNr
-                    if (nrSignal != null) {
-                        nrDetails[R.string.label_ssrsrp] = "${nrSignal.ssRsrp ?: "N/A"} dBm"
-                        nrDetails[R.string.label_ssrsrq] = "${nrSignal.ssRsrq ?: "N/A"} dB"
-                        nrDetails[R.string.label_sssnr] = "${nrSignal.ssSinr ?: "N/A"} dB"
-                    }
+                    val nrSignal = nrCell.signal
+                    nrDetails[R.string.label_ssrsrp] = "${nrSignal.ssRsrp ?: "N/A"} dBm"
+                    nrDetails[R.string.label_ssrsrq] = "${nrSignal.ssRsrq ?: "N/A"} dB"
+                    nrDetails[R.string.label_sssnr] = "${nrSignal.ssSinr ?: "N/A"} dB"
                 } else if (isNsaAccordingToNetMonster) {
                     // Step 4: Full Fallback (No NR cell object but system says NSA)
                     nrBandsSummary = context.getString(R.string.nsa_5g_uncertain)
                     nrDetails[R.string.label_band] = "0"
+                    isNrUncertain = true
                 }
             }
             is CellNr -> {
                 cellId = primaryCell.nci?.toString() ?: "N/A"
-                val signal = primaryCell.signal as? SignalNr
-                dbm = signal?.ssRsrp ?: dbm
+                val signal = primaryCell.signal
+                dbm = signal.ssRsrp ?: dbm
                 
                 techDetails[R.string.label_pci] = primaryCell.pci?.toString() ?: "N/A"
                 techDetails[R.string.label_tac] = primaryCell.tac?.toString() ?: "N/A"
@@ -359,20 +389,20 @@ class NetworkViewModel : ViewModel() {
                     val bandInfo = CellUtils.getNrBandInfo(it.channelNumber)
                     techDetails[R.string.label_nrarfcn] = it.channelNumber.toString()
                     techDetails[R.string.label_band] = bandInfo.band
-                    if (it.number == 0) {
-                        nrBandsSummary = context.getString(R.string.sa_5g_uncertain)
+                    nrBandsSummary = if (it.number == 0) {
+                        isNrUncertain = true
+                        context.getString(R.string.sa_5g_uncertain)
                     } else {
-                        nrBandsSummary = "5G • SA ${bandInfo.band} ${bandInfo.frequency}"
+                        "5G • SA ${bandInfo.band} ${bandInfo.frequency}"
                     }
                 } ?: run {
+                    isNrUncertain = true
                     nrBandsSummary = context.getString(R.string.sa_5g_uncertain)
                 }
                 
-                if (signal != null) {
-                    techDetails[R.string.label_ssrsrp] = "${signal.ssRsrp ?: "N/A"} dBm"
-                    techDetails[R.string.label_ssrsrq] = "${signal.ssRsrq ?: "N/A"} dB"
-                    techDetails[R.string.label_sssnr] = "${signal.ssSinr ?: "N/A"} dB"
-                }
+                techDetails[R.string.label_ssrsrp] = "${signal.ssRsrp ?: "N/A"} dBm"
+                techDetails[R.string.label_ssrsrq] = "${signal.ssRsrq ?: "N/A"} dB"
+                techDetails[R.string.label_sssnr] = "${signal.ssSinr ?: "N/A"} dB"
             }
         }
 
@@ -395,12 +425,13 @@ class NetworkViewModel : ViewModel() {
             nrDetails = nrDetails,
             lastUpdateTime = time,
             lteBands = lteBandsSummary,
-            nrBands = nrBandsSummary
+            nrBands = nrBandsSummary,
+            isNrUncertain = isNrUncertain
         )
     }
 
     private fun getNetworkTypeRes(primaryCell: ICell, allCells: List<ICell>): Int {
-        val isNr = allCells.asSequence().any { it is CellNr }
+        val isNr = allCells.any { it is CellNr }
         return when (primaryCell) {
             is CellNr -> R.string.sa_5g
             is CellLte -> if (isNr) R.string.nsa_5g else R.string.lte_4g
@@ -410,26 +441,48 @@ class NetworkViewModel : ViewModel() {
         }
     }
 
-    private fun getNetworkTypeString(primaryCell: ICell, allCells: List<ICell>): String {
-        val isNr = allCells.any { it is CellNr }
-        return when (primaryCell) {
-            is CellNr -> "5G (SA)"
-            is CellLte -> if (isNr) "5G (NSA)" else "4G (LTE)"
-            is CellWcdma -> "3G"
-            is CellGsm -> "2G"
-            else -> "Bilinmiyor"
-        }
-    }
-
     private fun getOperatorName(mcc: String, mnc: String): String = when ("$mcc$mnc") {
+        // Turkey
         "28601" -> "Turkcell"
         "28602" -> "Vodafone TR"
         "28603" -> "Türk Telekom"
-        else -> "Operatör ($mcc$mnc)"
+        "28604" -> "BIMcell"
+        
+        // USA
+        "310260", "310160", "310200", "310210", "310220", "310230", "310240", "310250" -> "T-Mobile"
+        "310410", "310030", "310070", "310150", "310170", "310380", "310560", "310680" -> "AT&T"
+        "311480", "310010", "310012", "310013", "310110" -> "Verizon"
+        
+        // India
+        "40445", "40554", "40555", "40556" -> "Airtel"
+        "40420", "405840", "405841", "405874" -> "Jio"
+        "40411", "40410", "40404" -> "Vi (Vodafone Idea)"
+        "40434", "40466" -> "BSNL"
+        
+        // China
+        "46000", "46002", "46007", "46008" -> "China Mobile"
+        "46001", "46006", "46009" -> "China Unicom"
+        "46003", "46005", "46011" -> "China Telecom"
+        "46015" -> "China Broadnet"
+        
+        // Saudi Arabia
+        "42001" -> "STC"
+        "42003" -> "Mobily"
+        "42004" -> "Zain SA"
+        "42005" -> "Virgin Mobile"
+        
+        // UAE
+        "42402" -> "Etisalat"
+        "42403" -> "du"
+        
+        // UK
+        "23410" -> "O2"
+        "23415" -> "Vodafone UK"
+        "23420" -> "Three"
+        "23430", "23433" -> "EE"
+        
+        else -> "" // Return empty to use TelephonyManager's name as fallback
     }
-
-    private fun formatIp(ip: Int): String = if (ip == 0) "0.0.0.0" else
-        "${ip and 0xFF}.${ip shr 8 and 0xFF}.${ip shr 16 and 0xFF}.${ip shr 24 and 0xFF}"
 
     private var speedTestJob: kotlinx.coroutines.Job? = null
 
@@ -446,113 +499,164 @@ class NetworkViewModel : ViewModel() {
         if (_speedTestState.value.isRunning) return
         
         speedTestJob = viewModelScope.launch(Dispatchers.IO) {
-            _speedTestState.value = SpeedTestState(isRunning = true, statusTextRes = R.string.start)
+            _speedTestState.value = SpeedTestState(isRunning = true, statusTextRes = R.string.measuring)
             
             try {
-                // Ping
-                val ping = measurePing()
-                _speedTestState.value = _speedTestState.value.copy(ping = ping, statusTextRes = R.string.measuring)
-                
-                // Download
-                val download = runDownloadTest { speed, prog ->
-                    _speedTestState.value = _speedTestState.value.copy(download = speed, progress = prog * 0.5f)
-                }
-                
+                // Step 1: Ping (5 seconds)
                 _speedTestState.value = _speedTestState.value.copy(statusTextRes = R.string.measuring)
+                val ping = measurePing()
                 
-                // Upload
-                val upload = runUploadTest { speed, prog ->
-                    _speedTestState.value = _speedTestState.value.copy(upload = speed, progress = 0.5f + prog * 0.5f)
-                }
+                // Final ping update
+                _speedTestState.value = _speedTestState.value.copy(ping = ping, progress = 0.1f)
+                
+                // Wait 1 second and RESET gauge
+                delay(1000)
+                _speedTestState.value = _speedTestState.value.copy(progress = 0.11f) // 0.11 will be "wait" state
+                
+                // Step 2: Download
+                _speedTestState.value = _speedTestState.value.copy(statusTextRes = R.string.measuring)
+                runDownloadTest()
+                
+                // Wait 1 second and RESET gauge
+                delay(1000)
+                _speedTestState.value = _speedTestState.value.copy(progress = 0.61f) // 0.61 will be "wait" state
+                
+                // Step 3: Upload
+                _speedTestState.value = _speedTestState.value.copy(statusTextRes = R.string.measuring)
+                runUploadTest()
                 
                 _speedTestState.value = _speedTestState.value.copy(
                     isRunning = false,
-                    download = download,
-                    upload = upload,
                     statusTextRes = R.string.speed_test_completed,
-                    progress = 1f
+                    progress = 1.0f
                 )
             } catch (e: kotlinx.coroutines.CancellationException) {
+                _speedTestState.value = SpeedTestState()
             }
         }
     }
 
-    private fun measurePing(): String {
-        return try {
-            val process = Runtime.getRuntime().exec("ping -c 3 8.8.8.8")
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            var avgPing = "Hata"
-            reader.useLines { lines ->
-                lines.forEach { line ->
-                    if (line.contains("min/avg/max")) {
-                        avgPing = line.split("=")[1].trim().split("/")[1].substringBefore(".") + " ms"
-                    }
-                }
-            }
-            avgPing
-        } catch (e: Exception) { "Hata" }
+    private suspend fun measurePing(): String {
+        val startTime = System.currentTimeMillis()
+        val duration = 5000L
+        val pingValues = mutableListOf<Int>()
+        
+        while (System.currentTimeMillis() - startTime < duration) {
+            yield()
+            try {
+                val pStartTime = System.currentTimeMillis()
+                val socket = java.net.Socket()
+                socket.connect(java.net.InetSocketAddress("8.8.8.8", 53), 1500)
+                val pEndTime = System.currentTimeMillis()
+                socket.close()
+                
+                val p = (pEndTime - pStartTime).toInt()
+                pingValues.add(p)
+                _speedTestState.value = _speedTestState.value.copy(
+                    ping = p.toString(),
+                    progress = ((System.currentTimeMillis() - startTime).toFloat() / duration) * 0.1f
+                )
+            } catch (e: Exception) { }
+            delay(400)
+        }
+        
+        return if (pingValues.isEmpty()) "0" else pingValues.average().toInt().toString()
     }
 
-    private suspend fun runDownloadTest(onUpdate: (String, Float) -> Unit): String {
+    private suspend fun runDownloadTest(): String {
         val testUrl = "https://speed.cloudflare.com/__down?bytes=50000000"
         val startTime = System.currentTimeMillis()
         var totalBytes = 0L
         val duration = 10000L
+        val speedValues = mutableListOf<Double>()
         
         return try {
             val url = URL(testUrl)
-            val connection = url.openConnection() as HttpURLConnection
+            val connection = withContext(Dispatchers.IO) { url.openConnection() } as HttpURLConnection
             connection.connectTimeout = 5000
             connection.readTimeout = 5000
             
             connection.inputStream.use { input ->
-                val buffer = ByteArray(128 * 1024) // 128KB buffer for better stability
+                val buffer = ByteArray(32 * 1024) // Smaller buffer
                 var read: Int
+                var lastUpdate = 0L
                 while (System.currentTimeMillis() - startTime < duration) {
-                    kotlin.coroutines.coroutineContext.ensureActive()
+                    yield()
                     read = input.read(buffer)
                     if (read == -1) break
                     totalBytes += read
                     val elapsed = System.currentTimeMillis() - startTime
-                    if (elapsed > 0) {
+                    if (elapsed > 0 && elapsed - lastUpdate > 30) { // Update faster
                         val speedMbps = (totalBytes * 8 / 1_000_000.0) / (elapsed / 1000.0)
-                        onUpdate(String.format(Locale.US, "%.1f Mbps", speedMbps), elapsed.toFloat() / duration)
+                        speedValues.add(speedMbps)
+                        
+                        val max = speedValues.maxOrNull() ?: 0.0
+                        val avg = speedValues.average()
+                        
+                        _speedTestState.value = _speedTestState.value.copy(
+                            download = String.format(Locale.US, "%.2f", speedMbps),
+                            maxDownload = String.format(Locale.US, "%.2f", max),
+                            avgDownload = String.format(Locale.US, "%.2f", avg),
+                            downloadGraphData = speedValues.takeLast(60).map { it.toFloat() },
+                            progress = 0.15f + (elapsed.toFloat() / duration * 0.45f)
+                        )
+                        lastUpdate = elapsed
                     }
                 }
             }
             val totalElapsed = System.currentTimeMillis() - startTime
-            String.format(Locale.US, "%.1f Mbps", (totalBytes * 8 / 1_000_000.0) / (totalElapsed / 1000.0))
-        } catch (e: Exception) { "Hata" }
+            val finalSpeed = (totalBytes * 8 / 1_000_000.0) / (totalElapsed / 1000.0)
+            String.format(Locale.US, "%.2f", finalSpeed)
+        } catch (e: Exception) { "0.00" }
     }
 
-    private suspend fun runUploadTest(onUpdate: (String, Float) -> Unit): String {
+    private suspend fun runUploadTest(): String {
         val testUrl = "https://speed.cloudflare.com/__up"
         val startTime = System.currentTimeMillis()
         var totalBytes = 0L
         val duration = 10000L
+        val speedValues = mutableListOf<Double>()
         
         return try {
             val url = URL(testUrl)
-            val connection = url.openConnection() as HttpURLConnection
+            val connection = withContext(Dispatchers.IO) { url.openConnection() } as HttpURLConnection
             connection.requestMethod = "POST"
             connection.doOutput = true
-            connection.setChunkedStreamingMode(64 * 1024)
+            // Setting a fixed length if we can estimate, or just remove chunked if possible
+            // But Cloudflare up likes streaming. Let's use a very large chunk for better flow.
+            connection.setChunkedStreamingMode(128 * 1024) 
             
             connection.outputStream.use { output ->
-                val buffer = ByteArray(64 * 1024)
+                val buffer = ByteArray(32 * 1024) 
+                var lastUpdate = 0L
                 while (System.currentTimeMillis() - startTime < duration) {
-                    kotlin.coroutines.coroutineContext.ensureActive()
+                    yield()
                     output.write(buffer)
                     totalBytes += buffer.size
                     val elapsed = System.currentTimeMillis() - startTime
-                    if (elapsed > 0) {
+                    if (elapsed > 0 && elapsed - lastUpdate > 50) { 
                         val speedMbps = (totalBytes * 8 / 1_000_000.0) / (elapsed / 1000.0)
-                        onUpdate(String.format(Locale.US, "%.1f Mbps", speedMbps), elapsed.toFloat() / duration)
+                        speedValues.add(speedMbps)
+                        
+                        val displaySpeed = if (speedValues.size > 3) speedValues.takeLast(3).average() else speedMbps
+                        
+                        val max = speedValues.maxOrNull() ?: 0.0
+                        val avg = speedValues.average()
+                        
+                        _speedTestState.value = _speedTestState.value.copy(
+                            upload = String.format(Locale.US, "%.2f", displaySpeed),
+                            maxUpload = String.format(Locale.US, "%.2f", max),
+                            avgUpload = String.format(Locale.US, "%.2f", avg),
+                            uploadGraphData = speedValues.takeLast(60).map { it.toFloat() },
+                            progress = 0.65f + (elapsed.toFloat() / duration * 0.35f)
+                        )
+                        lastUpdate = elapsed
                     }
                 }
             }
             val totalElapsed = System.currentTimeMillis() - startTime
-            String.format(Locale.US, "%.1f Mbps", (totalBytes * 8 / 1_000_000.0) / (totalElapsed / 1000.0))
-        } catch (e: Exception) { "Hata" }
+            val finalSpeed = (totalBytes * 8 / 1_000_000.0) / (totalElapsed / 1000.0)
+            String.format(Locale.US, "%.2f", finalSpeed)
+        } catch (e: Exception) { "0.00" }
     }
 }
